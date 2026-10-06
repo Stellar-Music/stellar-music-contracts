@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short,
-    token, Address, Env, String, Vec,
+    token, Address, BytesN, Env, String, Symbol, Vec,
 };
 
 #[contracterror]
@@ -18,6 +18,12 @@ pub enum Error {
     InvalidPrice = 7,
     InvalidBasisPoints = 8,
     SplitAlreadyLocked = 9,
+    AgreementNotFound = 10,
+    NotARecipient = 11,
+    AlreadyApproved = 12,
+    HashMismatch = 13,
+    DuplicateRecipient = 14,
+    NoRecipients = 15,
 }
 
 #[contracttype]
@@ -40,22 +46,27 @@ pub struct PassInfo {
     pub ledger_sequence: u32,
 }
 
-/// Level 2 architectural foundation: Split recipient structure
+/// Level 2: Collaborator Revenue Split Recipient
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SplitRecipient {
     pub recipient: Address,
+    pub role: Symbol,             // e.g. "artist", "producer", "songwrtr", "engineer"
     pub share_basis_points: u32, // 10000 = 100.00%
 }
 
-/// Level 2 architectural foundation: Multi-party revenue split agreement
+/// Level 2: Multi-Party Revenue Split Agreement State
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SplitAgreement {
     pub track_id: u64,
+    pub version: u32,
+    pub agreement_hash: BytesN<32>, // Deterministic SHA-256 of agreement terms
     pub recipients: Vec<SplitRecipient>,
-    pub is_locked: bool,
+    pub approvals: Vec<Address>,   // Collected cryptographic approvals
+    pub is_locked: bool,           // Immutable once all required parties sign
     pub created_at: u64,
+    pub locked_at: u64,
 }
 
 #[contracttype]
@@ -65,7 +76,9 @@ pub enum DataKey {
     Pass(Address, u64),
     TrackCount,
     TotalPasses,
-    SplitAgreement(u64),
+    SplitVersion(u64),                     // Latest version number for track
+    SplitAgreement(u64, u32),              // (track_id, version) -> SplitAgreement
+    ActiveLockedSplit(u64),                // track_id -> active locked version
 }
 
 #[contract]
@@ -84,7 +97,7 @@ impl StellarMusicContract {
         Ok(())
     }
 
-    /// Register a new track by an artist
+    /// Register a new track by an artist (Level 1)
     pub fn register_track(
         env: Env,
         artist: Address,
@@ -123,7 +136,7 @@ impl StellarMusicContract {
         Ok(count)
     }
 
-    /// Update track active status or pass price (Artist authorization required)
+    /// Update track active status or pass price
     pub fn update_track(
         env: Env,
         artist: Address,
@@ -159,7 +172,7 @@ impl StellarMusicContract {
         Ok(())
     }
 
-    /// Purchase a Music Pass for a track using any SEP-41 / SAC Stellar token (e.g. Native XLM)
+    /// Purchase a Music Pass for a track using any SEP-41 / SAC Stellar token (Level 1)
     pub fn purchase_pass(
         env: Env,
         listener: Address,
@@ -184,7 +197,6 @@ impl StellarMusicContract {
             return Err(Error::PassAlreadyPurchased);
         }
 
-        // Execute payment transfer from listener directly to track artist
         if track.pass_price > 0 {
             let client = token::Client::new(&env, &token);
             client.transfer(&listener, &track.artist, &track.pass_price);
@@ -243,16 +255,17 @@ impl StellarMusicContract {
     }
 
     // =========================================================================
-    // Level 2 Architecture Foundation: Signed Revenue Split Agreements
+    // LEVEL 2: REVENUE SPLIT AGREEMENT FINANCIAL LAYER
     // =========================================================================
 
-    /// Register a multi-party revenue split for a track (Level 2 extensible hook)
-    pub fn register_split_agreement(
+    /// Create a new multi-party revenue split agreement version
+    pub fn create_split_agreement(
         env: Env,
         artist: Address,
         track_id: u64,
+        agreement_hash: BytesN<32>,
         recipients: Vec<SplitRecipient>,
-    ) -> Result<(), Error> {
+    ) -> Result<u32, Error> {
         artist.require_auth();
 
         let track: TrackInfo = env
@@ -265,43 +278,199 @@ impl StellarMusicContract {
             return Err(Error::NotAuthorized);
         }
 
-        let split_key = DataKey::SplitAgreement(track_id);
-        if let Some(existing) = env.storage().persistent().get::<_, SplitAgreement>(&split_key) {
-            if existing.is_locked {
-                return Err(Error::SplitAlreadyLocked);
-            }
+        if recipients.is_empty() {
+            return Err(Error::NoRecipients);
         }
 
-        // Verify total basis points equals exactly 10,000 (100.00%)
+        // Validate exactly 10,000 basis points (100.00%) & check for duplicate addresses
         let mut total_basis_points: u32 = 0;
-        for recipient in recipients.iter() {
-            total_basis_points += recipient.share_basis_points;
+        for i in 0..recipients.len() {
+            let r = recipients.get(i).unwrap();
+            if r.share_basis_points == 0 {
+                return Err(Error::InvalidBasisPoints);
+            }
+            total_basis_points += r.share_basis_points;
+
+            // Duplicate recipient check
+            for j in (i + 1)..recipients.len() {
+                let other = recipients.get(j).unwrap();
+                if r.recipient == other.recipient {
+                    return Err(Error::DuplicateRecipient);
+                }
+            }
         }
 
         if total_basis_points != 10000 {
             return Err(Error::InvalidBasisPoints);
         }
 
+        // Increment version for this track
+        let version_key = DataKey::SplitVersion(track_id);
+        let mut version: u32 = env.storage().persistent().get(&version_key).unwrap_or(0);
+        version += 1;
+        env.storage().persistent().set(&version_key, &version);
+
+        let mut approvals: Vec<Address> = Vec::new(&env);
+        // If the creating artist is one of the recipients, record their initial approval
+        let mut artist_in_recipients = false;
+        for r in recipients.iter() {
+            if r.recipient == artist {
+                artist_in_recipients = true;
+                break;
+            }
+        }
+        if artist_in_recipients {
+            approvals.push_back(artist.clone());
+        }
+
+        // Auto-lock if single recipient and already approved
+        let is_locked = approvals.len() == recipients.len();
+        let now = env.ledger().timestamp();
+        let locked_at = if is_locked { now } else { 0 };
+
         let agreement = SplitAgreement {
             track_id,
+            version,
+            agreement_hash,
             recipients: recipients.clone(),
-            is_locked: false,
-            created_at: env.ledger().timestamp(),
+            approvals,
+            is_locked,
+            created_at: now,
+            locked_at,
         };
 
-        env.storage().persistent().set(&split_key, &agreement);
+        env.storage()
+            .persistent()
+            .set(&DataKey::SplitAgreement(track_id, version), &agreement);
+
+        if is_locked {
+            env.storage()
+                .persistent()
+                .set(&DataKey::ActiveLockedSplit(track_id), &version);
+
+            env.events().publish(
+                (symbol_short!("split"), symbol_short!("locked")),
+                (track_id, version),
+            );
+        }
 
         env.events().publish(
-            (symbol_short!("split"), symbol_short!("reg")),
-            (track_id, recipients.len()),
+            (symbol_short!("split"), symbol_short!("created")),
+            (track_id, version, recipients.len()),
         );
 
-        Ok(())
+        Ok(version)
     }
 
-    /// Query split agreement for a track
-    pub fn get_split_agreement(env: Env, track_id: u64) -> Option<SplitAgreement> {
-        env.storage().persistent().get(&DataKey::SplitAgreement(track_id))
+    /// Approve an exact split agreement by a contributor with cryptographic auth
+    pub fn approve_split_agreement(
+        env: Env,
+        contributor: Address,
+        track_id: u64,
+        version: u32,
+        agreement_hash: BytesN<32>,
+    ) -> Result<bool, Error> {
+        contributor.require_auth();
+
+        let agreement_key = DataKey::SplitAgreement(track_id, version);
+        let mut agreement: SplitAgreement = env
+            .storage()
+            .persistent()
+            .get(&agreement_key)
+            .ok_or(Error::AgreementNotFound)?;
+
+        if agreement.is_locked {
+            return Err(Error::SplitAlreadyLocked);
+        }
+
+        // Enforce agreement hash match so signers are approving the exact terms
+        if agreement.agreement_hash != agreement_hash {
+            return Err(Error::HashMismatch);
+        }
+
+        // Verify caller is a legitimate recipient in this agreement
+        let mut is_recipient = false;
+        for r in agreement.recipients.iter() {
+            if r.recipient == contributor {
+                is_recipient = true;
+                break;
+            }
+        }
+        if !is_recipient {
+            return Err(Error::NotARecipient);
+        }
+
+        // Check if already approved
+        for a in agreement.approvals.iter() {
+            if a == contributor {
+                return Err(Error::AlreadyApproved);
+            }
+        }
+
+        agreement.approvals.push_back(contributor.clone());
+
+        // Check if all required recipients have signed
+        if agreement.approvals.len() == agreement.recipients.len() {
+            agreement.is_locked = true;
+            agreement.locked_at = env.ledger().timestamp();
+
+            // Set as active locked split for Level 3 settlement
+            env.storage()
+                .persistent()
+                .set(&DataKey::ActiveLockedSplit(track_id), &version);
+
+            env.events().publish(
+                (symbol_short!("split"), symbol_short!("locked")),
+                (track_id, version),
+            );
+        }
+
+        env.storage()
+            .persistent()
+            .set(&agreement_key, &agreement);
+
+        env.events().publish(
+            (symbol_short!("split"), symbol_short!("apprvd")),
+            (track_id, version, contributor),
+        );
+
+        Ok(agreement.is_locked)
+    }
+
+    /// Query split agreement by track ID and version
+    pub fn get_split_agreement(env: Env, track_id: u64, version: u32) -> Option<SplitAgreement> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::SplitAgreement(track_id, version))
+    }
+
+    /// Query active locked split agreement for Level 3 settlement
+    pub fn get_active_locked_split(env: Env, track_id: u64) -> Option<SplitAgreement> {
+        let active_version: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ActiveLockedSplit(track_id))?;
+
+        env.storage()
+            .persistent()
+            .get(&DataKey::SplitAgreement(track_id, active_version))
+    }
+
+    /// Get latest split agreement version for a track
+    pub fn get_latest_split_version(env: Env, track_id: u64) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::SplitVersion(track_id))
+            .unwrap_or(0)
+    }
+
+    /// Check if a split agreement version is locked
+    pub fn is_agreement_locked(env: Env, track_id: u64, version: u32) -> bool {
+        if let Some(agreement) = Self::get_split_agreement(env, track_id, version) {
+            agreement.is_locked
+        } else {
+            false
+        }
     }
 }
 
