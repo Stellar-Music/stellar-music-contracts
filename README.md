@@ -1,5 +1,7 @@
 # 🎵 Stellar Music — Smart Contracts (`stellar-music-contracts`)
 
+> **🚀 Live Web Application**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
+
 Smart contract financial foundation for **Stellar Music**, built on **Soroban (Rust SDK v22)** for the **Stellar Testnet**.
 
 ## 📌 Architectural Responsibility
