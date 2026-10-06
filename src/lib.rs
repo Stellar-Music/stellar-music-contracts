@@ -24,6 +24,8 @@ pub enum Error {
     HashMismatch = 13,
     DuplicateRecipient = 14,
     NoRecipients = 15,
+    AgreementNotLocked = 16,
+    InvalidSettlementAmount = 17,
 }
 
 #[contracttype]
@@ -69,6 +71,29 @@ pub struct SplitAgreement {
     pub locked_at: u64,
 }
 
+/// Level 3: Executed Multi-Recipient Settlement Receipt
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SettlementReceipt {
+    pub settlement_id: u64,
+    pub track_id: u64,
+    pub agreement_version: u32,
+    pub gross_amount: i128,
+    pub recipient_count: u32,
+    pub settled_at: u64,
+    pub ledger_sequence: u32,
+}
+
+/// Level 3: Individual Recipient Settlement Breakdown
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecipientPayout {
+    pub recipient: Address,
+    pub role: Symbol,
+    pub basis_points: u32,
+    pub amount: i128,
+}
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -79,6 +104,9 @@ pub enum DataKey {
     SplitVersion(u64),                     // Latest version number for track
     SplitAgreement(u64, u32),              // (track_id, version) -> SplitAgreement
     ActiveLockedSplit(u64),                // track_id -> active locked version
+    SettlementCount,                       // Monotonically increasing settlement counter
+    Settlement(u64),                       // settlement_id -> SettlementReceipt
+    TrackSettledTotal(u64),                // track_id -> cumulative settled amount
 }
 
 #[contract]
@@ -471,6 +499,153 @@ impl StellarMusicContract {
         } else {
             false
         }
+    }
+
+    // =========================================================================
+    // LEVEL 3: AUTOMATED REVENUE SETTLEMENT ENGINE
+    // =========================================================================
+
+    /// Calculate recipient allocations deterministically according to the active locked split agreement
+    /// Uses integer-precise math (basis points: 10,000 = 100.00%) with deterministic remainder policy
+    pub fn calculate_split_allocations(
+        env: Env,
+        track_id: u64,
+        gross_amount: i128,
+    ) -> Result<Vec<RecipientPayout>, Error> {
+        if gross_amount <= 0 {
+            return Err(Error::InvalidSettlementAmount);
+        }
+
+        let agreement = Self::get_active_locked_split(env.clone(), track_id)
+            .ok_or(Error::AgreementNotFound)?;
+
+        if !agreement.is_locked {
+            return Err(Error::AgreementNotLocked);
+        }
+
+        let mut payouts: Vec<RecipientPayout> = Vec::new(&env);
+        let mut total_allocated: i128 = 0;
+
+        for r in agreement.recipients.iter() {
+            let amount = (gross_amount * (r.share_basis_points as i128)) / 10000i128;
+            total_allocated += amount;
+            payouts.push_back(RecipientPayout {
+                recipient: r.recipient,
+                role: r.role,
+                basis_points: r.share_basis_points,
+                amount,
+            });
+        }
+
+        // Deterministic remainder allocation: assign any fractional rounding dust to primary artist (index 0)
+        let remainder = gross_amount - total_allocated;
+        if remainder > 0 && !payouts.is_empty() {
+            let first = payouts.get(0).unwrap();
+            let adjusted = RecipientPayout {
+                recipient: first.recipient,
+                role: first.role,
+                basis_points: first.basis_points,
+                amount: first.amount + remainder,
+            };
+            payouts.set(0, adjusted);
+        }
+
+        Ok(payouts)
+    }
+
+    /// Execute automated multi-recipient settlement backed by the active locked split agreement
+    pub fn execute_split_settlement(
+        env: Env,
+        caller: Address,
+        track_id: u64,
+        gross_amount: i128,
+        token: Option<Address>,
+    ) -> Result<SettlementReceipt, Error> {
+        caller.require_auth();
+
+        if gross_amount <= 0 {
+            return Err(Error::InvalidSettlementAmount);
+        }
+
+        let agreement = Self::get_active_locked_split(env.clone(), track_id)
+            .ok_or(Error::AgreementNotFound)?;
+
+        if !agreement.is_locked {
+            return Err(Error::AgreementNotLocked);
+        }
+
+        let payouts = Self::calculate_split_allocations(env.clone(), track_id, gross_amount)?;
+
+        // Execute token transfers if token address is supplied
+        if let Some(token_address) = token {
+            let client = token::Client::new(&env, &token_address);
+            for payout in payouts.iter() {
+                if payout.amount > 0 {
+                    client.transfer(&caller, &payout.recipient, &payout.amount);
+                    env.events().publish(
+                        (symbol_short!("settle"), symbol_short!("paid")),
+                        (track_id, payout.recipient, payout.amount),
+                    );
+                }
+            }
+        }
+
+        // Increment settlement sequence counter
+        let count_key = DataKey::SettlementCount;
+        let mut settlement_id: u64 = env.storage().instance().get(&count_key).unwrap_or(0);
+        settlement_id += 1;
+        env.storage().instance().set(&count_key, &settlement_id);
+
+        let now = env.ledger().timestamp();
+        let receipt = SettlementReceipt {
+            settlement_id,
+            track_id,
+            agreement_version: agreement.version,
+            gross_amount,
+            recipient_count: payouts.len(),
+            settled_at: now,
+            ledger_sequence: env.ledger().sequence(),
+        };
+
+        // Record settlement receipt
+        env.storage()
+            .persistent()
+            .set(&DataKey::Settlement(settlement_id), &receipt);
+
+        // Update track cumulative settled total
+        let total_key = DataKey::TrackSettledTotal(track_id);
+        let current_total: i128 = env.storage().persistent().get(&total_key).unwrap_or(0);
+        env.storage()
+            .persistent()
+            .set(&total_key, &(current_total + gross_amount));
+
+        // Publish contract settlement events
+        env.events().publish(
+            (symbol_short!("settle"), symbol_short!("done")),
+            (settlement_id, track_id, agreement.version, gross_amount),
+        );
+
+        Ok(receipt)
+    }
+
+    /// Query settlement receipt by ID
+    pub fn get_settlement(env: Env, settlement_id: u64) -> Option<SettlementReceipt> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Settlement(settlement_id))
+    }
+
+    /// Query total settlements executed platform-wide
+    pub fn get_settlement_count(env: Env) -> u64 {
+        env.storage().instance().get(&DataKey::SettlementCount).unwrap_or(0)
+    }
+
+    /// Query cumulative settled amount for a track
+    pub fn get_track_settled_total(env: Env, track_id: u64) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::TrackSettledTotal(track_id))
+            .unwrap_or(0)
     }
 }
 
