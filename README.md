@@ -73,9 +73,13 @@ Stellar Music eliminates opaque royalty distribution and intermediary payment de
 2. **Duplicate Prevention (`DuplicateRecipient`)**: A wallet cannot be specified multiple times within the same split agreement.
 3. **Lock Gatekeeper (`AgreementNotLocked`)**: Settlement execution is strictly prohibited unless the agreement has reached the `LOCKED` state through unanimous multi-party cryptographic approvals.
 4. **Remainder Dust Zero-Leak Invariant**:
-   $$\sum_{i=0}^{n-1} \text{actual\_amount}_i = \text{gross\_amount}$$
-   $$\text{dust} = \text{gross\_amount} - \sum_{i=0}^{n-1} \left( \lfloor \frac{\text{gross\_amount} \times \text{bps}_i}{10000} \rfloor \right)$$
-   $$\text{actual\_amount}_0 = \text{calculated\_amount}_0 + \text{dust}$$
+   All monetary computations use integer arithmetic in Stellar stroops (`1 XLM = 10,000,000 stroops`). Indivisible dust remainder resulting from integer division is deterministically allocated to recipient 0:
+   ```text
+   dust = gross_amount - sum(floor(gross_amount * bps[i] / 10,000))
+   actual_amount[0] = calculated_amount[0] + dust
+
+   Invariant: sum(actual_amount[0..n-1]) == gross_amount
+   ```
 5. **Replay & Hash Binding**: Every approval requires passing the agreement's SHA-256 hash. If terms are modified, previous signatures are rendered invalid.
 
 ---
