@@ -108,39 +108,39 @@ The contract implements strongly typed errors via `soroban_sdk::contracterror`. 
 
 ## 📸 Product Functionality Walkthrough
 
-The smart contract suite directly powers the frontend and backend workflows across all three protocol levels:
+The smart contract suite directly powers the complete decentralized streaming and settlement workflow:
 
-### 1. Catalog Discovery & Non-Custodial Streaming
-Verified on-chain tracks are streamed directly with authenticated HTTP 206 range delivery. Persistent player manages playback, volume, and seeking.
+### 1. Catalog Discovery & Range Audio Streaming
+Verified on-chain tracks are streamed with authenticated HTTP 206 range delivery. The persistent player manages playback, volume, and seeking.
 ![Music Discovery & Persistent Audio Player](docs/screenshots/01_music_discovery.png)
 
 ---
 
-### 2. Level 1 — Non-Custodial Music Pass Access (`purchase_pass`)
+### 2. Non-Custodial Music Pass Access (`purchase_pass`)
 Listeners purchase track access passes using native Stellar Testnet XLM. Funds transfer directly to artist accounts with cryptographic replay protection.
 ![Music Pass Purchase Modal](docs/screenshots/02_music_pass_modal.png)
 
 ---
 
-### 3. Level 2 — Collaborator Revenue Split Studio (`create_split_agreement`, `approve_split_agreement`)
+### 3. Collaborator Revenue Split Studio (`create_split_agreement`, `approve_split_agreement`)
 Collaborators configure exact basis points totaling 10,000 (100.00%). When all parties cryptographically sign, the status automatically transitions to `LOCKED`.
 ![Revenue Split Studio & Agreement Status](docs/screenshots/03_revenue_split_studio.png)
 
 ---
 
-### 4. Level 3 — Contributor Royalty & Earnings Dashboard (`get_track_settled_total`)
+### 4. Contributor Royalty & Earnings Dashboard (`get_track_settled_total`)
 Collaborators monitor lifetime earnings, pending pool royalties, and settled XLM on Stellar with direct links to blockchain transaction receipts.
 ![Contributor Royalty & Earnings Dashboard](docs/screenshots/04_contributor_earnings.png)
 
 ---
 
-### 5. Level 3 — Artist Automated Settlement Engine (`execute_split_settlement`)
+### 5. Automated Multi-Recipient Settlement Engine (`execute_split_settlement`)
 Artists view catalog gross revenue, pending balances, and execute automated multi-recipient settlement batches in a single on-chain transaction.
 ![Artist Revenue & Automated Settlement Engine](docs/screenshots/05_artist_revenue_engine.png)
 
 ---
 
-### 6. Level 3 — Track Revenue Auditor (`calculate_split_allocations`, `get_settlement`)
+### 6. Public Track Revenue & Settlement Auditor (`calculate_split_allocations`, `get_settlement`)
 Publicly inspect per-track revenue pools, verify immutable split terms, confirm remainder dust allocation to Index 0, and audit on-chain settlement receipts.
 ![Track Revenue & Settlement Auditor](docs/screenshots/06_track_revenue_audit.png)
 
@@ -214,10 +214,13 @@ All 12 automated test cases pass with zero failures:
 
 ---
 
-## 🌐 Network Configuration
+## 🌐 Network & Ecosystem Links
 
-* **Network**: Stellar Testnet
+* **Live Web Application**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
+* **Frontend Web Application Repo**: [Stellar-Music/stellar-music-frontend](https://github.com/Stellar-Music/stellar-music-frontend)
+* **Backend API & Settlement Engine Repo**: [Stellar-Music/stellar-music-backend](https://github.com/Stellar-Music/stellar-music-backend)
+* **Smart Contracts Repo**: [Stellar-Music/stellar-music-contracts](https://github.com/Stellar-Music/stellar-music-contracts)
+* **Stellar Network**: Testnet
 * **Soroban RPC**: `https://soroban-testnet.stellar.org`
 * **Network Passphrase**: `Test SDF Network ; September 2015`
 * **Testnet Explorer**: [Stellar Expert Explorer](https://stellar.expert/explorer/testnet)
-* **Frontend Web Application**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
