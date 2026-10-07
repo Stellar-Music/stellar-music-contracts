@@ -51,7 +51,7 @@ Watch the complete Soroban contract execution, multi-contributor split agreement
 
 | Platform Tour & Walkthrough | Direct Access & Controls |
 | :--- | :--- |
-| [![Stellar Music Video Walkthrough](https://raw.githubusercontent.com/Stellar-Music/stellar-music-frontend/main/docs/screenshots/03_revenue_split_studio.png)](https://stellar-music-app.netlify.app/walkthrough.html) | • **[▶️ Watch Interactive Video Walkthrough (Netlify)](https://stellar-music-app.netlify.app/walkthrough.html)**<br>• **[⬇️ Download Master 1080p MP4](https://stellar-music-app.netlify.app/videos/stellar-music-walkthrough.mp4)**<br>• **Resolution:** 1080p Full HD (1920x1080)<br>• **Narration:** Azure Neural Voice (`en-US-GuyNeural`)<br>• **Runtime:** 1m 14s |
+| [![Stellar Music Video Walkthrough](https://raw.githubusercontent.com/Stellar-Music/stellar-music-frontend/main/docs/screenshots/03_revenue_split_studio.png)](https://stellar-music-app.netlify.app/#walkthrough) | • **[▶️ Watch on Netlify (Dedicated App Tab)](https://stellar-music-app.netlify.app/#walkthrough)**<br>• **[🌐 Open Standalone Player](https://stellar-music-app.netlify.app/walkthrough.html)**<br>• **[⬇️ Download Master 1080p MP4](https://stellar-music-app.netlify.app/videos/stellar-music-walkthrough.mp4)**<br>• **Resolution:** 1080p Full HD (1920x1080)<br>• **Capture Type:** Live Browser Execution Recording<br>• **Narration:** Azure Neural Voice (`en-US-GuyNeural`)<br>• **Runtime:** 1m 14s |
 
 ---
 
