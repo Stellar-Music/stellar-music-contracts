@@ -1,11 +1,25 @@
 # 🎵 Stellar Music — Smart Contracts (`stellar-music-contracts`)
 
 [![Live Application](https://img.shields.io/badge/Live%20App-stellar--music--app.netlify.app-00f2fe?style=for-the-badge)](https://stellar-music-app.netlify.app)
-[![Stellar Testnet](https://img.shields.io/badge/Stellar-Testnet-blue?style=for-the-badge&logo=stellar)](https://stellar.expert/explorer/testnet)
+[![Stellar Testnet](https://img.shields.io/badge/Stellar_Testnet-live_contract-brightgreen?style=for-the-badge&logo=stellar)](https://stellar.expert/explorer/testnet/contract/CBUNX6PF4OOFGQ434IBVCLRBR6OBQOM5PTYUES7X6KSN2AIER6VMJK7K)
 [![Soroban SDK](https://img.shields.io/badge/Soroban%20SDK-v22.0.0-purple?style=for-the-badge)](https://stellar.org)
 [![Tests](https://img.shields.io/badge/Contract%20Tests-12%2F12%20Passing-emerald?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts)
 
 The decentralized financial engine and settlement protocol for **Stellar Music**, built on **Soroban (Rust SDK v22)** for the **Stellar Network**.
+
+---
+
+## 🌐 Live Testnet Deployment
+
+The smart contract is live, deployed, and initialized on the **Stellar Testnet**:
+
+| Parameter | Value | Explorer Link |
+| :--- | :--- | :--- |
+| **Contract ID** | `CBUNX6PF4OOFGQ434IBVCLRBR6OBQOM5PTYUES7X6KSN2AIER6VMJK7K` | [StellarExpert Contract Explorer](https://stellar.expert/explorer/testnet/contract/CBUNX6PF4OOFGQ434IBVCLRBR6OBQOM5PTYUES7X6KSN2AIER6VMJK7K) |
+| **Admin Account** | `GCMMDSL3RW5SHGAXEOW6G5M7KZ2CFWUPUKV5Q5L2NBTUA6F4RK45NE7F` | [StellarExpert Account Explorer](https://stellar.expert/explorer/testnet/account/GCMMDSL3RW5SHGAXEOW6G5M7KZ2CFWUPUKV5Q5L2NBTUA6F4RK45NE7F) |
+| **WASM Hash** | `ee0cda1ecc85f3233df94fecbbdd2bbd56305a894e51f3432082dfa0770b9895` | [WASM Bytecode](deployments/testnet.json) |
+| **Deployment Tx** | `32408fc621838119d27a89f3fbd968201751582b7363943c97d226cdbe4249a6` | [View Deployment Tx](https://stellar.expert/explorer/testnet/tx/32408fc621838119d27a89f3fbd968201751582b7363943c97d226cdbe4249a6) |
+| **Initialization Tx** | `14a573d53a7d3b27e6cad7abb233a61c9cae0ae304cdffb8b1472713a2fe886d` | [View Init Tx](https://stellar.expert/explorer/testnet/tx/14a573d53a7d3b27e6cad7abb233a61c9cae0ae304cdffb8b1472713a2fe886d) |
 
 ---
 
@@ -51,7 +65,7 @@ Watch the complete Soroban contract execution, multi-contributor split agreement
 
 | Platform Tour & Walkthrough | Direct Access & Controls |
 | :--- | :--- |
-| [![Stellar Music Video Walkthrough](https://raw.githubusercontent.com/Stellar-Music/stellar-music-frontend/main/docs/screenshots/03_revenue_split_studio.png)](https://stellar-music-app.netlify.app/#walkthrough) | • **[▶️ Watch on Netlify (Dedicated App Tab)](https://stellar-music-app.netlify.app/#walkthrough)**<br>• **[🌐 Open Standalone Player](https://stellar-music-app.netlify.app/walkthrough.html)**<br>• **[⬇️ Download Master 1080p MP4](https://stellar-music-app.netlify.app/videos/stellar-music-walkthrough.mp4)**<br>• **Resolution:** 1080p Full HD (1920x1080)<br>• **Capture Type:** Live Browser Execution Recording<br>• **Narration:** Azure Neural Voice (`en-US-GuyNeural`)<br>• **Runtime:** 1m 14s |
+| <video src="https://stellar-music-app.netlify.app/videos/stellar-music-walkthrough.mp4" controls width="100%" poster="https://raw.githubusercontent.com/Stellar-Music/stellar-music-frontend/main/docs/screenshots/03_revenue_split_studio.png"><a href="https://stellar-music-app.netlify.app/walkthrough.html"><img src="https://raw.githubusercontent.com/Stellar-Music/stellar-music-frontend/main/docs/screenshots/03_revenue_split_studio.png" alt="Stellar Music Walkthrough"></a></video> | • **[▶️ Watch on Standalone Netlify Player](https://stellar-music-app.netlify.app/walkthrough.html)**<br>• **[🌐 Open in Stellar Music App Tab](https://stellar-music-app.netlify.app/#walkthrough)**<br>• **[🎬 Direct MP4 Video Stream](https://stellar-music-app.netlify.app/videos/stellar-music-walkthrough.mp4)**<br>• **[🔗 GitHub Raw Video Stream](https://github.com/Stellar-Music/stellar-music-frontend/raw/main/public/videos/stellar-music-walkthrough.mp4)**<br>• **Resolution:** 1080p Full HD (1920x1080)<br>• **Capture Type:** Live Browser Execution Recording<br>• **Narration:** Azure Neural Voice (`en-US-GuyNeural`)<br>• **Runtime:** 1m 14s |
 
 ---
 
