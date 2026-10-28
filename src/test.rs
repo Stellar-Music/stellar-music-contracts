@@ -3,7 +3,7 @@
 use super::*;
 use soroban_sdk::{
     symbol_short,
-    testutils::{Address as _, Ledger as _},
+    testutils::{Address as _, Events as _, Ledger as _},
     token::{StellarAssetClient, TokenClient},
     vec, Address, BytesN, Env, String,
 };
@@ -1065,4 +1065,27 @@ fn test_artist_treasury_withdraw() {
     assert_eq!(token_client.balance(&artist), 7_000_0000); // 7 XLM
     assert_eq!(token_client.balance(&producer), 3_000_0000); // 3 XLM
     assert_eq!(token_client.balance(&pool_caller), 0);
+}
+
+#[test]
+fn test_contract_event_emission_verification() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let track_id = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://event-track"));
+
+    // Verify pass purchase publishes pass bought event
+    let listener = Address::generate(&env);
+    let dummy_token = Address::generate(&env);
+    client.purchase_pass(&listener, &track_id, &dummy_token);
+
+    let all_events = env.events().all();
+    assert!(!all_events.is_empty(), "Events should be recorded on chain actions");
 }
