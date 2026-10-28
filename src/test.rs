@@ -1196,3 +1196,39 @@ fn test_contract_upgrade() {
     let err = client.try_upgrade(&attacker, &dummy_hash);
     assert_eq!(err, Err(Ok(Error::NotAuthorized)));
 }
+
+#[test]
+fn test_maximum_supply_cap_invariant() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let track_id = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://limited-drop"));
+
+    let num_fans = 5;
+    let mut listeners = soroban_sdk::Vec::new(&env);
+    let dummy_token = Address::generate(&env);
+
+    for _ in 0..num_fans {
+        let fan = Address::generate(&env);
+        listeners.push_back(fan.clone());
+        client.purchase_pass(&fan, &track_id, &dummy_token);
+    }
+
+    // Invariant 1: Total passes counter must equal exact number of purchased passes
+    assert_eq!(client.get_total_passes(), 5);
+
+    // Invariant 2: Re-purchase rejection prevents supply inflation
+    for fan in listeners.iter() {
+        let attempt = client.try_purchase_pass(&fan, &track_id, &dummy_token);
+        assert_eq!(attempt, Err(Ok(Error::PassAlreadyPurchased)));
+        // Total passes remains strictly 5
+        assert_eq!(client.get_total_passes(), 5);
+    }
+}
