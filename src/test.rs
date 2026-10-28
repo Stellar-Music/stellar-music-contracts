@@ -816,3 +816,78 @@ fn test_fuzz_purchase_pass_boundaries() {
     let re_purchase = client.try_purchase_pass(&listener_exact, &min_track_id, &token_id.address());
     assert_eq!(re_purchase, Err(Ok(Error::PassAlreadyPurchased)));
 }
+
+#[test]
+fn test_contract_stroop_loss_invariant() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let producer = Address::generate(&env);
+    let songwriter = Address::generate(&env);
+
+    let track_id = client.register_track(
+        &artist,
+        &1_000_0000,
+        &String::from_str(&env, "ipfs://stroop-invariant-track"),
+    );
+
+    // 3-way split: 33.34%, 33.33%, 33.33% (sum = 10,000 bps)
+    let recipients = soroban_sdk::vec![
+        &env,
+        SplitRecipient {
+            recipient: artist.clone(),
+            role: symbol_short!("artist"),
+            share_basis_points: 3334,
+        },
+        SplitRecipient {
+            recipient: producer.clone(),
+            role: symbol_short!("producer"),
+            share_basis_points: 3333,
+        },
+        SplitRecipient {
+            recipient: songwriter.clone(),
+            role: symbol_short!("songwrtr"),
+            share_basis_points: 3333,
+        },
+    ];
+
+    let hash = BytesN::from_array(&env, &[7u8; 32]);
+    let version = client.create_split_agreement(&artist, &track_id, &hash, &recipients);
+
+    // Approve by remaining recipients to lock
+    client.approve_split_agreement(&producer, &track_id, &version, &hash);
+    client.approve_split_agreement(&songwriter, &track_id, &version, &hash);
+    assert!(client.is_agreement_locked(&track_id, &version));
+
+    // Diverse test amounts: 1 stroop, 7 stroops, 100 stroops, 9,999,999 stroops, 100,000,000,000 stroops
+    let test_amounts: [i128; 8] = [
+        1,
+        7,
+        100,
+        999,
+        10_000_000,
+        77_777_777,
+        1_234_567_890,
+        99_999_999_999,
+    ];
+
+    for &gross in test_amounts.iter() {
+        let allocations = client.calculate_split_allocations(&track_id, &gross);
+        let mut sum_allocated: i128 = 0;
+        for p in allocations.iter() {
+            assert!(p.amount >= 0, "Recipient payout cannot be negative");
+            sum_allocated += p.amount;
+        }
+        assert_eq!(
+            sum_allocated, gross,
+            "0-Stroop loss invariant failed: allocated sum must exactly match gross amount"
+        );
+    }
+}
