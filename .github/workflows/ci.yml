@@ -1,4 +1,4 @@
-name: Contracts CI
+name: Soroban Smart Contracts CI
 
 on:
   push:
@@ -6,15 +6,62 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test-and-build:
+  validate-and-test:
+    name: Test, Lint & Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Run Tests
-        run: cargo test
-      - name: Build WASM
+          components: rustfmt, clippy
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Code Formatting Check
+        run: cargo fmt --check
+
+      - name: Clippy Linter Check
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+
+      - name: Run Contract Unit & Invariant Tests
+        run: cargo test --lib --verbose
+
+      - name: Build Optimized Contract WASM
         run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: Verify WASM Binary Output
+        run: |
+          WASM_FILE="target/wasm32-unknown-unknown/release/stellar_music_contracts.wasm"
+          if [ -f "$WASM_FILE" ]; then
+            SIZE=$(stat -c%s "$WASM_FILE" 2>/dev/null || stat -f%z "$WASM_FILE")
+            echo "Contract WASM generated successfully: $WASM_FILE ($SIZE bytes)"
+          else
+            echo "Error: WASM output missing!"
+            exit 1
+          fi
+
+      - name: Upload Contract WASM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stellar-music-contract-wasm
+          path: target/wasm32-unknown-unknown/release/stellar_music_contracts.wasm
+          if-no-files-found: error
