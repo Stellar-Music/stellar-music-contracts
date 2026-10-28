@@ -891,3 +891,66 @@ fn test_contract_stroop_loss_invariant() {
         );
     }
 }
+
+#[test]
+fn test_tiered_pass_purchase() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_client = TokenClient::new(&env, &token_id.address());
+    let token_admin_client = StellarAssetClient::new(&env, &token_id.address());
+
+    let artist = Address::generate(&env);
+    let standard_fan = Address::generate(&env);
+    let collector_fan = Address::generate(&env);
+
+    let standard_price: i128 = 5_000_0000;  // 5 XLM
+    let collector_price: i128 = 50_000_0000; // 50 XLM
+
+    token_admin_client.mint(&standard_fan, &standard_price);
+    token_admin_client.mint(&collector_fan, &collector_price);
+
+    // Register Tier 1: Standard Track Pass
+    let t1 = client.register_track(
+        &artist,
+        &standard_price,
+        &String::from_str(&env, "ipfs://tier1-standard-audio"),
+    );
+
+    // Register Tier 2: Exclusive Stem / Collector Pass
+    let t2 = client.register_track(
+        &artist,
+        &collector_price,
+        &String::from_str(&env, "ipfs://tier2-exclusive-stems"),
+    );
+
+    assert_eq!(client.get_track_pass_price(&t1), Some(standard_price));
+    assert_eq!(client.get_track_pass_price(&t2), Some(collector_price));
+
+    // Standard listener buys Tier 1
+    let p1 = client.purchase_pass(&standard_fan, &t1, &token_id.address());
+    assert_eq!(p1.amount_paid, standard_price);
+
+    // Collector fan buys Tier 2
+    let p2 = client.purchase_pass(&collector_fan, &t2, &token_id.address());
+    assert_eq!(p2.amount_paid, collector_price);
+
+    // Check balances
+    assert_eq!(token_client.balance(&standard_fan), 0);
+    assert_eq!(token_client.balance(&collector_fan), 0);
+    assert_eq!(token_client.balance(&artist), standard_price + collector_price);
+
+    // Verify independent ownership
+    assert!(client.has_valid_pass(&standard_fan, &t1));
+    assert!(!client.has_valid_pass(&standard_fan, &t2));
+    assert!(!client.has_valid_pass(&collector_fan, &t1));
+    assert!(client.has_valid_pass(&collector_fan, &t2));
+}
