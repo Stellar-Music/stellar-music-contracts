@@ -3,7 +3,7 @@
 use super::*;
 use soroban_sdk::{
     symbol_short,
-    testutils::Address as _,
+    testutils::{Address as _, Ledger as _},
     token::{StellarAssetClient, TokenClient},
     vec, Address, BytesN, Env, String,
 };
@@ -953,4 +953,50 @@ fn test_tiered_pass_purchase() {
     assert!(!client.has_valid_pass(&standard_fan, &t2));
     assert!(!client.has_valid_pass(&collector_fan, &t1));
     assert!(client.has_valid_pass(&collector_fan, &t2));
+}
+
+#[test]
+fn test_pass_timestamp_and_ledger_sequence_invariant() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let track_id = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://timestamped"));
+
+    let listener_1 = Address::generate(&env);
+    let listener_2 = Address::generate(&env);
+    let dummy_token = Address::generate(&env);
+
+    // Set initial Ledger state
+    env.ledger().with_mut(|li| {
+        li.timestamp = 1_000;
+        li.sequence_number = 100;
+    });
+
+    let p1 = client.purchase_pass(&listener_1, &track_id, &dummy_token);
+    assert_eq!(p1.purchased_at, 1_000);
+    assert_eq!(p1.ledger_sequence, 100);
+
+    // Advance Ledger state forward
+    env.ledger().with_mut(|li| {
+        li.timestamp = 1_250;
+        li.sequence_number = 120;
+    });
+
+    let p2 = client.purchase_pass(&listener_2, &track_id, &dummy_token);
+    assert_eq!(p2.purchased_at, 1_250);
+    assert_eq!(p2.ledger_sequence, 120);
+
+    // Verify historical immutability from storage
+    let stored_p1 = client.get_pass(&listener_1, &track_id).unwrap();
+    assert_eq!(stored_p1.purchased_at, 1_000);
+    assert_eq!(stored_p1.ledger_sequence, 100);
+    assert!(p2.purchased_at > p1.purchased_at);
+    assert!(p2.ledger_sequence > p1.ledger_sequence);
 }
