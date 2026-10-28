@@ -30,15 +30,24 @@ pub enum Error {
     PriceTooLow = 19,
     TooManyRecipients = 20,
     TrackArchived = 21,
+    MetadataUriEmpty = 22,
+    InvalidFeeBps = 23,
+    ZeroDeposit = 24,
 }
 
 /// Minimum pass price floor: 0.01 XLM (100,000 stroops)
 pub const MIN_PASS_PRICE: i128 = 100_000;
 /// Maximum collaborator limit to prevent unbounded execution loops
 pub const MAX_RECIPIENTS: u32 = 25;
+/// Maximum allowable protocol fee in basis points (1,000 bps = 10.00%)
+pub const MAX_PLATFORM_FEE_BPS: u32 = 1000;
 /// Storage TTL extension parameters
 pub const STORAGE_TTL_THRESHOLD: u32 = 100_000;
 pub const STORAGE_TTL_EXTEND: u32 = 500_000;
+/// Semantic Contract Version: v1.1.0 (Drips Wave Protocol Edition)
+pub const CONTRACT_VERSION_MAJOR: u32 = 1;
+pub const CONTRACT_VERSION_MINOR: u32 = 1;
+pub const CONTRACT_VERSION_PATCH: u32 = 0;
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -110,8 +119,13 @@ pub struct RecipientPayout {
 pub enum DataKey {
     Admin,
     Paused,
+    Treasury,
+    PlatformFeeBps,
     Track(u64),
+    TrackArchived(u64),
     Pass(Address, u64),
+    ListenerPassCount(Address),
+    TrackPoolBalance(u64),
     TrackCount,
     TotalPasses,
     SplitVersion(u64),                     // Latest version number for track
@@ -134,9 +148,72 @@ impl StellarMusicContract {
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Paused, &false);
+        env.storage().instance().set(&DataKey::PlatformFeeBps, &0u32);
         env.storage().instance().set(&DataKey::TrackCount, &0u64);
         env.storage().instance().set(&DataKey::TotalPasses, &0u64);
         Ok(())
+    }
+
+    /// Return the semantic contract version
+    pub fn get_contract_version(_env: Env) -> (u32, u32, u32) {
+        (CONTRACT_VERSION_MAJOR, CONTRACT_VERSION_MINOR, CONTRACT_VERSION_PATCH)
+    }
+
+    /// Transfer platform administrator privileges to a new address
+    pub fn set_admin(env: Env, current_admin: Address, new_admin: Address) -> Result<(), Error> {
+        current_admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::NotInitialized)?;
+        if current_admin != stored_admin {
+            return Err(Error::NotAuthorized);
+        }
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+        env.events().publish(
+            (symbol_short!("admin"), symbol_short!("transfer")),
+            (current_admin, new_admin),
+        );
+        Ok(())
+    }
+
+    /// Configure platform fee treasury address and basis points (capped at MAX_PLATFORM_FEE_BPS)
+    pub fn set_platform_fee(
+        env: Env,
+        admin: Address,
+        treasury: Address,
+        fee_bps: u32,
+    ) -> Result<(), Error> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::NotInitialized)?;
+        if admin != stored_admin {
+            return Err(Error::NotAuthorized);
+        }
+        if fee_bps > MAX_PLATFORM_FEE_BPS {
+            return Err(Error::InvalidFeeBps);
+        }
+        env.storage().instance().set(&DataKey::Treasury, &treasury);
+        env.storage().instance().set(&DataKey::PlatformFeeBps, &fee_bps);
+        env.events().publish(
+            (symbol_short!("fee"), symbol_short!("config")),
+            (treasury, fee_bps),
+        );
+        Ok(())
+    }
+
+    /// Query the configured platform fee in basis points
+    pub fn get_platform_fee_bps(env: Env) -> u32 {
+        env.storage().instance().get(&DataKey::PlatformFeeBps).unwrap_or(0)
+    }
+
+    /// Query the configured platform treasury address
+    pub fn get_treasury(env: Env) -> Option<Address> {
+        env.storage().instance().get(&DataKey::Treasury)
     }
 
     /// Check if the contract is paused
@@ -220,6 +297,10 @@ impl StellarMusicContract {
     ) -> Result<(), Error> {
         artist.require_auth();
 
+        if Self::is_track_archived(env.clone(), track_id) {
+            return Err(Error::TrackArchived);
+        }
+
         let track_key = DataKey::Track(track_id);
         let mut track: TrackInfo = env
             .storage()
@@ -249,6 +330,62 @@ impl StellarMusicContract {
         Ok(())
     }
 
+    /// Archive a track permanently, preventing new pass sales
+    pub fn archive_track(env: Env, artist: Address, track_id: u64) -> Result<(), Error> {
+        artist.require_auth();
+        let track: TrackInfo = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Track(track_id))
+            .ok_or(Error::TrackNotFound)?;
+        if track.artist != artist {
+            return Err(Error::NotAuthorized);
+        }
+        env.storage().persistent().set(&DataKey::TrackArchived(track_id), &true);
+        env.events().publish(
+            (symbol_short!("track"), symbol_short!("archive")),
+            (track_id, artist),
+        );
+        Ok(())
+    }
+
+    /// Check if a track has been permanently archived
+    pub fn is_track_archived(env: Env, track_id: u64) -> bool {
+        env.storage().persistent().get(&DataKey::TrackArchived(track_id)).unwrap_or(false)
+    }
+
+    /// Update track metadata URI with validation against empty strings
+    pub fn update_metadata_uri(
+        env: Env,
+        artist: Address,
+        track_id: u64,
+        metadata_uri: String,
+    ) -> Result<(), Error> {
+        artist.require_auth();
+        if metadata_uri.is_empty() {
+            return Err(Error::MetadataUriEmpty);
+        }
+        let track_key = DataKey::Track(track_id);
+        let mut track: TrackInfo = env
+            .storage()
+            .persistent()
+            .get(&track_key)
+            .ok_or(Error::TrackNotFound)?;
+        if track.artist != artist {
+            return Err(Error::NotAuthorized);
+        }
+        if Self::is_track_archived(env.clone(), track_id) {
+            return Err(Error::TrackArchived);
+        }
+        track.metadata_uri = metadata_uri.clone();
+        env.storage().persistent().set(&track_key, &track);
+        env.events().publish(
+            (symbol_short!("track"), symbol_short!("meta")),
+            (track_id, metadata_uri),
+        );
+        Ok(())
+    }
+
     /// Purchase a Music Pass for a track using any SEP-41 / SAC Stellar token (Level 1)
     pub fn purchase_pass(
         env: Env,
@@ -260,6 +397,10 @@ impl StellarMusicContract {
 
         if Self::is_paused(env.clone()) {
             return Err(Error::ContractPaused);
+        }
+
+        if Self::is_track_archived(env.clone(), track_id) {
+            return Err(Error::TrackArchived);
         }
 
         let track_key = DataKey::Track(track_id);
@@ -301,6 +442,11 @@ impl StellarMusicContract {
         total_passes += 1;
         env.storage().instance().set(&DataKey::TotalPasses, &total_passes);
 
+        // Increment listener cumulative pass counter
+        let listener_count_key = DataKey::ListenerPassCount(listener.clone());
+        let l_count: u64 = env.storage().persistent().get(&listener_count_key).unwrap_or(0);
+        env.storage().persistent().set(&listener_count_key, &(l_count + 1));
+
         env.events().publish(
             (symbol_short!("pass"), symbol_short!("bought")),
             (track_id, listener, track.artist, track.pass_price),
@@ -313,6 +459,20 @@ impl StellarMusicContract {
     pub fn has_valid_pass(env: Env, listener: Address, track_id: u64) -> bool {
         let pass_key = DataKey::Pass(listener, track_id);
         env.storage().persistent().has(&pass_key)
+    }
+
+    /// Batch verify whether a listener holds valid passes across multiple tracks
+    pub fn has_passes_batch(env: Env, listener: Address, track_ids: Vec<u64>) -> Vec<bool> {
+        let mut results = Vec::new(&env);
+        for id in track_ids.iter() {
+            results.push_back(Self::has_valid_pass(env.clone(), listener.clone(), id));
+        }
+        results
+    }
+
+    /// Query the total number of music passes owned by a specific listener
+    pub fn get_listener_pass_count(env: Env, listener: Address) -> u64 {
+        env.storage().persistent().get(&DataKey::ListenerPassCount(listener)).unwrap_or(0)
     }
 
     /// Query Track Information by ID
@@ -339,6 +499,43 @@ impl StellarMusicContract {
     /// Get total number of music passes issued platform-wide
     pub fn get_total_passes(env: Env) -> u64 {
         env.storage().instance().get(&DataKey::TotalPasses).unwrap_or(0)
+    }
+
+    /// Query cumulative deposited revenue pool balance for a track
+    pub fn get_track_pool_balance(env: Env, track_id: u64) -> i128 {
+        env.storage().persistent().get(&DataKey::TrackPoolBalance(track_id)).unwrap_or(0)
+    }
+
+    /// Deposit revenue into a track pool
+    pub fn deposit_track_revenue(
+        env: Env,
+        caller: Address,
+        track_id: u64,
+        amount: i128,
+        token: Option<Address>,
+    ) -> Result<i128, Error> {
+        caller.require_auth();
+        if amount <= 0 {
+            return Err(Error::ZeroDeposit);
+        }
+        let _track: TrackInfo = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Track(track_id))
+            .ok_or(Error::TrackNotFound)?;
+        if let Some(token_addr) = token {
+            let client = token::Client::new(&env, &token_addr);
+            client.transfer(&caller, &env.current_contract_address(), &amount);
+        }
+        let pool_key = DataKey::TrackPoolBalance(track_id);
+        let current_balance: i128 = env.storage().persistent().get(&pool_key).unwrap_or(0);
+        let new_balance = current_balance + amount;
+        env.storage().persistent().set(&pool_key, &new_balance);
+        env.events().publish(
+            (symbol_short!("pool"), symbol_short!("deposit")),
+            (track_id, caller, amount),
+        );
+        Ok(new_balance)
     }
 
     // =========================================================================
