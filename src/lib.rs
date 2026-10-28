@@ -7,8 +7,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short,
-    token, Address, BytesN, Env, String, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env,
+    String, Symbol, Vec,
 };
 
 /// Protocol Error codes returned by smart contract invocations
@@ -105,7 +105,7 @@ pub struct PassInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SplitRecipient {
     pub recipient: Address,
-    pub role: Symbol,             // e.g. "artist", "producer", "songwrtr", "engineer"
+    pub role: Symbol,            // e.g. "artist", "producer", "songwrtr", "engineer"
     pub share_basis_points: u32, // 10000 = 100.00%
 }
 
@@ -117,8 +117,8 @@ pub struct SplitAgreement {
     pub version: u32,
     pub agreement_hash: BytesN<32>, // Deterministic SHA-256 of agreement terms
     pub recipients: Vec<SplitRecipient>,
-    pub approvals: Vec<Address>,   // Collected cryptographic approvals
-    pub is_locked: bool,           // Immutable once all required parties sign
+    pub approvals: Vec<Address>, // Collected cryptographic approvals
+    pub is_locked: bool,         // Immutable once all required parties sign
     pub created_at: u64,
     pub locked_at: u64,
 }
@@ -159,12 +159,12 @@ pub enum DataKey {
     TrackPoolBalance(u64),
     TrackCount,
     TotalPasses,
-    SplitVersion(u64),                     // Latest version number for track
-    SplitAgreement(u64, u32),              // (track_id, version) -> SplitAgreement
-    ActiveLockedSplit(u64),                // track_id -> active locked version
-    SettlementCount,                       // Monotonically increasing settlement counter
-    Settlement(u64),                       // settlement_id -> SettlementReceipt
-    TrackSettledTotal(u64),                // track_id -> cumulative settled amount
+    SplitVersion(u64),        // Latest version number for track
+    SplitAgreement(u64, u32), // (track_id, version) -> SplitAgreement
+    ActiveLockedSplit(u64),   // track_id -> active locked version
+    SettlementCount,          // Monotonically increasing settlement counter
+    Settlement(u64),          // settlement_id -> SettlementReceipt
+    TrackSettledTotal(u64),   // track_id -> cumulative settled amount
 }
 
 #[contract]
@@ -179,7 +179,9 @@ impl StellarMusicContract {
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Paused, &false);
-        env.storage().instance().set(&DataKey::PlatformFeeBps, &0u32);
+        env.storage()
+            .instance()
+            .set(&DataKey::PlatformFeeBps, &0u32);
         env.storage().instance().set(&DataKey::TrackCount, &0u64);
         env.storage().instance().set(&DataKey::TotalPasses, &0u64);
         Ok(())
@@ -187,7 +189,11 @@ impl StellarMusicContract {
 
     /// Return the semantic contract version
     pub fn get_contract_version(_env: Env) -> (u32, u32, u32) {
-        (CONTRACT_VERSION_MAJOR, CONTRACT_VERSION_MINOR, CONTRACT_VERSION_PATCH)
+        (
+            CONTRACT_VERSION_MAJOR,
+            CONTRACT_VERSION_MINOR,
+            CONTRACT_VERSION_PATCH,
+        )
     }
 
     /// Transfer platform administrator privileges to a new address
@@ -220,7 +226,8 @@ impl StellarMusicContract {
         if admin != stored_admin {
             return Err(Error::NotAuthorized);
         }
-        env.deployer().update_current_contract_wasm(new_wasm_hash.clone());
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
         env.events().publish(
             (symbol_short!("contract"), symbol_short!("upgrd")),
             new_wasm_hash,
@@ -248,7 +255,9 @@ impl StellarMusicContract {
             return Err(Error::InvalidFeeBps);
         }
         env.storage().instance().set(&DataKey::Treasury, &treasury);
-        env.storage().instance().set(&DataKey::PlatformFeeBps, &fee_bps);
+        env.storage()
+            .instance()
+            .set(&DataKey::PlatformFeeBps, &fee_bps);
         env.events().publish(
             (symbol_short!("fee"), symbol_short!("config")),
             (treasury, fee_bps),
@@ -258,7 +267,10 @@ impl StellarMusicContract {
 
     /// Query the configured platform fee in basis points
     pub fn get_platform_fee_bps(env: Env) -> u32 {
-        env.storage().instance().get(&DataKey::PlatformFeeBps).unwrap_or(0)
+        env.storage()
+            .instance()
+            .get(&DataKey::PlatformFeeBps)
+            .unwrap_or(0)
     }
 
     /// Query the configured platform treasury address
@@ -268,7 +280,10 @@ impl StellarMusicContract {
 
     /// Check if the contract is paused
     pub fn is_paused(env: Env) -> bool {
-        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+        env.storage()
+            .instance()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
     }
 
     /// Admin emergency control to pause or unpause protocol operations
@@ -283,16 +298,16 @@ impl StellarMusicContract {
             return Err(Error::NotAuthorized);
         }
         env.storage().instance().set(&DataKey::Paused, &paused);
-        env.events().publish(
-            (symbol_short!("contract"), symbol_short!("pause")),
-            paused,
-        );
+        env.events()
+            .publish((symbol_short!("contract"), symbol_short!("pause")), paused);
         Ok(())
     }
 
     /// Extend instance and persistent storage TTL
     pub fn extend_ttl(env: Env) {
-        env.storage().instance().extend_ttl(STORAGE_TTL_THRESHOLD, STORAGE_TTL_EXTEND);
+        env.storage()
+            .instance()
+            .extend_ttl(STORAGE_TTL_THRESHOLD, STORAGE_TTL_EXTEND);
     }
 
     /// Register a new track by an artist (Level 1)
@@ -326,7 +341,9 @@ impl StellarMusicContract {
             is_active: true,
         };
 
-        env.storage().persistent().set(&DataKey::Track(count), &track);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Track(count), &track);
         env.storage().instance().set(&DataKey::TrackCount, &count);
 
         env.events().publish(
@@ -391,7 +408,9 @@ impl StellarMusicContract {
         if track.artist != artist {
             return Err(Error::NotAuthorized);
         }
-        env.storage().persistent().set(&DataKey::TrackArchived(track_id), &true);
+        env.storage()
+            .persistent()
+            .set(&DataKey::TrackArchived(track_id), &true);
         env.events().publish(
             (symbol_short!("track"), symbol_short!("archive")),
             (track_id, artist),
@@ -401,7 +420,10 @@ impl StellarMusicContract {
 
     /// Check if a track has been permanently archived
     pub fn is_track_archived(env: Env, track_id: u64) -> bool {
-        env.storage().persistent().get(&DataKey::TrackArchived(track_id)).unwrap_or(false)
+        env.storage()
+            .persistent()
+            .get(&DataKey::TrackArchived(track_id))
+            .unwrap_or(false)
     }
 
     /// Update track metadata URI with validation against empty strings
@@ -490,12 +512,20 @@ impl StellarMusicContract {
             .get(&DataKey::TotalPasses)
             .unwrap_or(0);
         total_passes += 1;
-        env.storage().instance().set(&DataKey::TotalPasses, &total_passes);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalPasses, &total_passes);
 
         // Increment listener cumulative pass counter
         let listener_count_key = DataKey::ListenerPassCount(listener.clone());
-        let l_count: u64 = env.storage().persistent().get(&listener_count_key).unwrap_or(0);
-        env.storage().persistent().set(&listener_count_key, &(l_count + 1));
+        let l_count: u64 = env
+            .storage()
+            .persistent()
+            .get(&listener_count_key)
+            .unwrap_or(0);
+        env.storage()
+            .persistent()
+            .set(&listener_count_key, &(l_count + 1));
 
         env.events().publish(
             (symbol_short!("pass"), symbol_short!("bought")),
@@ -522,7 +552,10 @@ impl StellarMusicContract {
 
     /// Query the total number of music passes owned by a specific listener
     pub fn get_listener_pass_count(env: Env, listener: Address) -> u64 {
-        env.storage().persistent().get(&DataKey::ListenerPassCount(listener)).unwrap_or(0)
+        env.storage()
+            .persistent()
+            .get(&DataKey::ListenerPassCount(listener))
+            .unwrap_or(0)
     }
 
     /// Query Track Information by ID
@@ -538,22 +571,33 @@ impl StellarMusicContract {
 
     /// Query Pass Information for a listener and track
     pub fn get_pass(env: Env, listener: Address, track_id: u64) -> Option<PassInfo> {
-        env.storage().persistent().get(&DataKey::Pass(listener, track_id))
+        env.storage()
+            .persistent()
+            .get(&DataKey::Pass(listener, track_id))
     }
 
     /// Get total number of registered tracks
     pub fn get_track_count(env: Env) -> u64 {
-        env.storage().instance().get(&DataKey::TrackCount).unwrap_or(0)
+        env.storage()
+            .instance()
+            .get(&DataKey::TrackCount)
+            .unwrap_or(0)
     }
 
     /// Get total number of music passes issued platform-wide
     pub fn get_total_passes(env: Env) -> u64 {
-        env.storage().instance().get(&DataKey::TotalPasses).unwrap_or(0)
+        env.storage()
+            .instance()
+            .get(&DataKey::TotalPasses)
+            .unwrap_or(0)
     }
 
     /// Query cumulative deposited revenue pool balance for a track
     pub fn get_track_pool_balance(env: Env, track_id: u64) -> i128 {
-        env.storage().persistent().get(&DataKey::TrackPoolBalance(track_id)).unwrap_or(0)
+        env.storage()
+            .persistent()
+            .get(&DataKey::TrackPoolBalance(track_id))
+            .unwrap_or(0)
     }
 
     /// Deposit revenue into a track pool
@@ -767,9 +811,7 @@ impl StellarMusicContract {
             );
         }
 
-        env.storage()
-            .persistent()
-            .set(&agreement_key, &agreement);
+        env.storage().persistent().set(&agreement_key, &agreement);
 
         env.events().publish(
             (symbol_short!("split"), symbol_short!("apprvd")),
@@ -830,8 +872,8 @@ impl StellarMusicContract {
             return Err(Error::InvalidSettlementAmount);
         }
 
-        let agreement = Self::get_active_locked_split(env.clone(), track_id)
-            .ok_or(Error::AgreementNotFound)?;
+        let agreement =
+            Self::get_active_locked_split(env.clone(), track_id).ok_or(Error::AgreementNotFound)?;
 
         if !agreement.is_locked {
             return Err(Error::AgreementNotLocked);
@@ -885,8 +927,8 @@ impl StellarMusicContract {
             return Err(Error::InvalidSettlementAmount);
         }
 
-        let agreement = Self::get_active_locked_split(env.clone(), track_id)
-            .ok_or(Error::AgreementNotFound)?;
+        let agreement =
+            Self::get_active_locked_split(env.clone(), track_id).ok_or(Error::AgreementNotFound)?;
 
         if !agreement.is_locked {
             return Err(Error::AgreementNotLocked);
@@ -955,7 +997,10 @@ impl StellarMusicContract {
 
     /// Query total settlements executed platform-wide
     pub fn get_settlement_count(env: Env) -> u64 {
-        env.storage().instance().get(&DataKey::SettlementCount).unwrap_or(0)
+        env.storage()
+            .instance()
+            .get(&DataKey::SettlementCount)
+            .unwrap_or(0)
     }
 
     /// Query cumulative settled amount for a track

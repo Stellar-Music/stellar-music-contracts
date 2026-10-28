@@ -85,7 +85,10 @@ fn test_purchase_pass_and_payment_transfer() {
     assert_eq!(pass_info.listener, listener);
     assert_eq!(pass_info.amount_paid, pass_price);
 
-    assert_eq!(token_client.balance(&listener), initial_balance - pass_price);
+    assert_eq!(
+        token_client.balance(&listener),
+        initial_balance - pass_price
+    );
     assert_eq!(token_client.balance(&artist), pass_price);
     assert_eq!(client.has_valid_pass(&listener, &track_id), true);
     assert_eq!(client.get_total_passes(), 1);
@@ -106,11 +109,8 @@ fn test_level2_create_split_agreement_success() {
     let producer = Address::generate(&env);
     let engineer = Address::generate(&env);
 
-    let track_id = client.register_track(
-        &artist,
-        &3_000_0000,
-        &String::from_str(&env, "ipfs://meta"),
-    );
+    let track_id =
+        client.register_track(&artist, &3_000_0000, &String::from_str(&env, "ipfs://meta"));
 
     let recipients = vec![
         &env,
@@ -514,7 +514,6 @@ fn test_level3_settlement_invariant_and_rounding_dust() {
     assert_eq!(receipt.gross_amount, gross_stroops);
 }
 
-
 #[test]
 fn test_emergency_pause_and_unpause() {
     let env = Env::default();
@@ -561,7 +560,8 @@ fn test_minimum_pass_price_enforcement() {
     let artist = Address::generate(&env);
 
     // Under minimum (50,000 < 100,000) fails
-    let err_res = client.try_register_track(&artist, &50_000, &String::from_str(&env, "ipfs://cheap"));
+    let err_res =
+        client.try_register_track(&artist, &50_000, &String::from_str(&env, "ipfs://cheap"));
     assert!(err_res.is_err());
 
     // Exactly minimum or free (0) succeeds
@@ -586,7 +586,8 @@ fn test_maximum_recipients_limit() {
     client.initialize(&admin);
 
     let artist = Address::generate(&env);
-    let track_id = client.register_track(&artist, &100_000, &String::from_str(&env, "ipfs://collab"));
+    let track_id =
+        client.register_track(&artist, &100_000, &String::from_str(&env, "ipfs://collab"));
 
     // 26 recipients (> MAX_RECIPIENTS = 25)
     let mut recipients = Vec::new(&env);
@@ -602,7 +603,6 @@ fn test_maximum_recipients_limit() {
     let res = client.try_create_split_agreement(&artist, &track_id, &hash, &recipients);
     assert!(res.is_err());
 }
-
 
 #[test]
 fn test_contract_version() {
@@ -722,9 +722,16 @@ fn test_update_metadata_uri_and_validation() {
     assert!(empty_err.is_err());
 
     // Valid update
-    client.update_metadata_uri(&artist, &track_id, &String::from_str(&env, "ipfs://new-album-art"));
+    client.update_metadata_uri(
+        &artist,
+        &track_id,
+        &String::from_str(&env, "ipfs://new-album-art"),
+    );
     let track = client.get_track(&track_id).unwrap();
-    assert_eq!(track.metadata_uri, String::from_str(&env, "ipfs://new-album-art"));
+    assert_eq!(
+        track.metadata_uri,
+        String::from_str(&env, "ipfs://new-album-art")
+    );
 }
 
 #[test]
@@ -756,9 +763,9 @@ fn test_bulk_pass_check_and_listener_pass_count() {
     let track_ids = soroban_sdk::vec![&env, t1, t2, t3];
     let results = client.has_passes_batch(&listener, &track_ids);
 
-    assert_eq!(results.get(0), Some(true));  // t1: owned
+    assert_eq!(results.get(0), Some(true)); // t1: owned
     assert_eq!(results.get(1), Some(false)); // t2: not owned
-    assert_eq!(results.get(2), Some(true));  // t3: owned
+    assert_eq!(results.get(2), Some(true)); // t3: owned
 }
 
 #[test]
@@ -788,11 +795,8 @@ fn test_fuzz_purchase_pass_boundaries() {
     assert_eq!(below_min, Err(Ok(Error::PriceTooLow)));
 
     // Boundary 2: Free track (0) succeeds and allows purchase without tokens
-    let free_track_id = client.register_track(
-        &artist,
-        &0,
-        &String::from_str(&env, "ipfs://free_track"),
-    );
+    let free_track_id =
+        client.register_track(&artist, &0, &String::from_str(&env, "ipfs://free_track"));
     let listener_free = Address::generate(&env);
     let pass_free = client.purchase_pass(&listener_free, &free_track_id, &token_id.address());
     assert_eq!(pass_free.amount_paid, 0);
@@ -912,7 +916,7 @@ fn test_tiered_pass_purchase() {
     let standard_fan = Address::generate(&env);
     let collector_fan = Address::generate(&env);
 
-    let standard_price: i128 = 5_000_0000;  // 5 XLM
+    let standard_price: i128 = 5_000_0000; // 5 XLM
     let collector_price: i128 = 50_000_0000; // 50 XLM
 
     token_admin_client.mint(&standard_fan, &standard_price);
@@ -946,7 +950,10 @@ fn test_tiered_pass_purchase() {
     // Check balances
     assert_eq!(token_client.balance(&standard_fan), 0);
     assert_eq!(token_client.balance(&collector_fan), 0);
-    assert_eq!(token_client.balance(&artist), standard_price + collector_price);
+    assert_eq!(
+        token_client.balance(&artist),
+        standard_price + collector_price
+    );
 
     // Verify independent ownership
     assert!(client.has_valid_pass(&standard_fan, &t1));
@@ -967,7 +974,8 @@ fn test_pass_timestamp_and_ledger_sequence_invariant() {
     client.initialize(&admin);
 
     let artist = Address::generate(&env);
-    let track_id = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://timestamped"));
+    let track_id =
+        client.register_track(&artist, &0, &String::from_str(&env, "ipfs://timestamped"));
 
     let listener_1 = Address::generate(&env);
     let listener_2 = Address::generate(&env);
@@ -1031,7 +1039,11 @@ fn test_artist_treasury_withdraw() {
 
     let artist = Address::generate(&env);
     let producer = Address::generate(&env);
-    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://audio"));
+    let track_id = client.register_track(
+        &artist,
+        &1_000_0000,
+        &String::from_str(&env, "ipfs://audio"),
+    );
 
     let recipients = soroban_sdk::vec![
         &env,
@@ -1079,7 +1091,8 @@ fn test_contract_event_emission_verification() {
     client.initialize(&admin);
 
     let artist = Address::generate(&env);
-    let track_id = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://event-track"));
+    let track_id =
+        client.register_track(&artist, &0, &String::from_str(&env, "ipfs://event-track"));
 
     // Verify pass purchase publishes pass bought event
     let listener = Address::generate(&env);
@@ -1087,7 +1100,10 @@ fn test_contract_event_emission_verification() {
     client.purchase_pass(&listener, &track_id, &dummy_token);
 
     let all_events = env.events().all();
-    assert!(!all_events.is_empty(), "Events should be recorded on chain actions");
+    assert!(
+        !all_events.is_empty(),
+        "Events should be recorded on chain actions"
+    );
 }
 
 #[test]
@@ -1102,7 +1118,11 @@ fn test_unauthorized_signer_rejection() {
     client.initialize(&admin);
 
     let artist = Address::generate(&env);
-    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://legit-audio"));
+    let track_id = client.register_track(
+        &artist,
+        &1_000_0000,
+        &String::from_str(&env, "ipfs://legit-audio"),
+    );
 
     let attacker = Address::generate(&env);
 
@@ -1115,7 +1135,11 @@ fn test_unauthorized_signer_rejection() {
     assert_eq!(hack_archive, Err(Ok(Error::NotAuthorized)));
 
     // 3. Attacker attempts to change metadata URI
-    let hack_uri = client.try_update_metadata_uri(&attacker, &track_id, &String::from_str(&env, "ipfs://malicious"));
+    let hack_uri = client.try_update_metadata_uri(
+        &attacker,
+        &track_id,
+        &String::from_str(&env, "ipfs://malicious"),
+    );
     assert_eq!(hack_uri, Err(Ok(Error::NotAuthorized)));
 
     // 4. Attacker attempts to pause contract
@@ -1160,8 +1184,16 @@ fn test_sac_token_transfer_cross_contract() {
     token_a_admin.mint(&listener, &price_a);
     token_b_admin.mint(&listener, &price_b);
 
-    let track_a = client.register_track(&artist_a, &price_a, &String::from_str(&env, "ipfs://track-a"));
-    let track_b = client.register_track(&artist_b, &price_b, &String::from_str(&env, "ipfs://track-b"));
+    let track_a = client.register_track(
+        &artist_a,
+        &price_a,
+        &String::from_str(&env, "ipfs://track-a"),
+    );
+    let track_b = client.register_track(
+        &artist_b,
+        &price_b,
+        &String::from_str(&env, "ipfs://track-b"),
+    );
 
     // Cross-contract call to Token A
     client.purchase_pass(&listener, &track_a, &token_a_id.address());
@@ -1209,7 +1241,8 @@ fn test_maximum_supply_cap_invariant() {
     client.initialize(&admin);
 
     let artist = Address::generate(&env);
-    let track_id = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://limited-drop"));
+    let track_id =
+        client.register_track(&artist, &0, &String::from_str(&env, "ipfs://limited-drop"));
 
     let num_fans = 5;
     let mut listeners = soroban_sdk::Vec::new(&env);
@@ -1246,7 +1279,11 @@ fn test_signature_replay_defense() {
 
     let artist = Address::generate(&env);
     let collaborator = Address::generate(&env);
-    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://split-track"));
+    let track_id = client.register_track(
+        &artist,
+        &1_000_0000,
+        &String::from_str(&env, "ipfs://split-track"),
+    );
 
     let recipients = soroban_sdk::vec![
         &env,
@@ -1277,21 +1314,13 @@ fn test_signature_replay_defense() {
     assert_eq!(replay_err, Err(Ok(Error::HashMismatch)));
 
     // 2. Legitimate approval succeeds
-    let is_locked = client.approve_split_agreement(
-        &collaborator,
-        &track_id,
-        &version,
-        &legitimate_hash,
-    );
+    let is_locked =
+        client.approve_split_agreement(&collaborator, &track_id, &version, &legitimate_hash);
     assert!(is_locked);
 
     // 3. Duplicate approval replay attempt fails with SplitAlreadyLocked
-    let duplicate_attempt = client.try_approve_split_agreement(
-        &collaborator,
-        &track_id,
-        &version,
-        &legitimate_hash,
-    );
+    let duplicate_attempt =
+        client.try_approve_split_agreement(&collaborator, &track_id, &version, &legitimate_hash);
     assert_eq!(duplicate_attempt, Err(Ok(Error::SplitAlreadyLocked)));
 }
 
@@ -1307,7 +1336,11 @@ fn test_emergency_pause_settlement_blocking() {
     client.initialize(&admin);
 
     let artist = Address::generate(&env);
-    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://pause-settle"));
+    let track_id = client.register_track(
+        &artist,
+        &1_000_0000,
+        &String::from_str(&env, "ipfs://pause-settle"),
+    );
 
     let recipients = soroban_sdk::vec![
         &env,
@@ -1328,7 +1361,8 @@ fn test_emergency_pause_settlement_blocking() {
 
     // Both pass purchases and settlement runs are strictly blocked during emergency pause
     let caller = Address::generate(&env);
-    let settle_attempt = client.try_execute_split_settlement(&caller, &track_id, &10_000_0000, &None);
+    let settle_attempt =
+        client.try_execute_split_settlement(&caller, &track_id, &10_000_0000, &None);
     assert_eq!(settle_attempt, Err(Ok(Error::ContractPaused)));
 
     let listener = Address::generate(&env);
