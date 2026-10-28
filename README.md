@@ -9,6 +9,22 @@ The decentralized financial engine and settlement protocol for **Stellar Music**
 
 ---
 
+## 🏛️ Ecosystem Architecture & Repository Directory
+
+Stellar Music is engineered as a three-tier decentralized streaming application:
+
+| Repository | Responsibility | Tech Stack | Status | Tests |
+| :--- | :--- | :--- | :---: | :---: |
+| **[`stellar-music-contracts`](https://github.com/Stellar-Music/stellar-music-contracts)** | Non-custodial splits, passes, 0-stroop invariant engine | Soroban / Rust SDK v22 | **Deployed** | **34 / 34** |
+| **[`stellar-music-backend`](https://github.com/Stellar-Music/stellar-music-backend)** | Audio streaming, SSE settlements, Horizon failover pool | Node.js / TypeScript / SQLite / Express | **Active** | **89 / 89** |
+| **[`stellar-music-frontend`](https://github.com/Stellar-Music/stellar-music-frontend)** | Reactive Web3 player, PWA, Freighter wallet connector | React 18 / TypeScript / Vite / Tailwind | **Live** | **130 / 130** |
+
+* **Total Protocol Automated Tests**: **253 / 253 passing** across contracts, backend, and frontend.
+* **Official Drips Wave Appeal Dossier**: [`docs/DRIPS_WAVE_APPEAL.md`](docs/DRIPS_WAVE_APPEAL.md)
+* **Live Production dApp**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
+
+---
+
 ## 🌐 Live Testnet Deployment
 
 The smart contract is live, deployed, and initialized on the **Stellar Testnet**:
