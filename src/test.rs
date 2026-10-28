@@ -513,3 +513,92 @@ fn test_level3_settlement_invariant_and_rounding_dust() {
     let receipt = client.execute_split_settlement(&artist, &track_id, &gross_stroops, &None);
     assert_eq!(receipt.gross_amount, gross_stroops);
 }
+
+
+#[test]
+fn test_emergency_pause_and_unpause() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    assert_eq!(client.is_paused(), false);
+
+    // Pause contract
+    client.set_paused(&admin, &true);
+    assert_eq!(client.is_paused(), true);
+
+    // Any pass purchase must fail when paused
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let artist = Address::generate(&env);
+    let listener = Address::generate(&env);
+    let track_id = client.register_track(&artist, &100_000, &String::from_str(&env, "ipfs://test"));
+
+    let res = client.try_purchase_pass(&listener, &track_id, &token_id.address());
+    assert!(res.is_err());
+
+    // Unpause
+    client.set_paused(&admin, &false);
+    assert_eq!(client.is_paused(), false);
+}
+
+#[test]
+fn test_minimum_pass_price_enforcement() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+
+    // Under minimum (50,000 < 100,000) fails
+    let err_res = client.try_register_track(&artist, &50_000, &String::from_str(&env, "ipfs://cheap"));
+    assert!(err_res.is_err());
+
+    // Exactly minimum or free (0) succeeds
+    let t1 = client.register_track(&artist, &100_000, &String::from_str(&env, "ipfs://valid"));
+    assert_eq!(t1, 1);
+    assert_eq!(client.get_track_pass_price(&t1), Some(100_000));
+
+    let t2 = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://free"));
+    assert_eq!(t2, 2);
+    assert_eq!(client.get_track_pass_price(&t2), Some(0));
+}
+
+#[test]
+fn test_maximum_recipients_limit() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let track_id = client.register_track(&artist, &100_000, &String::from_str(&env, "ipfs://collab"));
+
+    // 26 recipients (> MAX_RECIPIENTS = 25)
+    let mut recipients = Vec::new(&env);
+    for _ in 0..26 {
+        recipients.push_back(SplitRecipient {
+            recipient: Address::generate(&env),
+            role: symbol_short!("artist"),
+            share_basis_points: 384,
+        });
+    }
+
+    let hash = BytesN::from_array(&env, &[1u8; 32]);
+    let res = client.try_create_split_agreement(&artist, &track_id, &hash, &recipients);
+    assert!(res.is_err());
+}
