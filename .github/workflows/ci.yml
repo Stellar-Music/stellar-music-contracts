@@ -42,11 +42,17 @@ jobs:
       - name: Clippy Linter Check
         run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
 
+      - name: Rustdoc Documentation Verification
+        run: cargo doc --no-deps
+
       - name: Run Contract Unit & Invariant Tests
         run: cargo test --lib --verbose
 
       - name: Build Optimized Contract WASM
         run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: WASM Size Budget Enforcer (<50KB)
+        run: bash scripts/check-wasm-size.sh
 
       - name: Verify WASM Binary Output
         run: |
