@@ -1294,3 +1294,53 @@ fn test_signature_replay_defense() {
     );
     assert_eq!(duplicate_attempt, Err(Ok(Error::SplitAlreadyLocked)));
 }
+
+#[test]
+fn test_emergency_pause_settlement_blocking() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://pause-settle"));
+
+    let recipients = soroban_sdk::vec![
+        &env,
+        SplitRecipient {
+            recipient: artist.clone(),
+            role: symbol_short!("artist"),
+            share_basis_points: 10000,
+        },
+    ];
+
+    let hash = BytesN::from_array(&env, &[0x33; 32]);
+    let version = client.create_split_agreement(&artist, &track_id, &hash, &recipients);
+    assert!(client.is_agreement_locked(&track_id, &version));
+
+    // Admin pauses protocol
+    client.set_paused(&admin, &true);
+    assert!(client.is_paused());
+
+    // Both pass purchases and settlement runs are strictly blocked during emergency pause
+    let caller = Address::generate(&env);
+    let settle_attempt = client.try_execute_split_settlement(&caller, &track_id, &10_000_0000, &None);
+    assert_eq!(settle_attempt, Err(Ok(Error::ContractPaused)));
+
+    let listener = Address::generate(&env);
+    let dummy_token = Address::generate(&env);
+    let pass_attempt = client.try_purchase_pass(&listener, &track_id, &dummy_token);
+    assert_eq!(pass_attempt, Err(Ok(Error::ContractPaused)));
+
+    // Admin lifts pause
+    client.set_paused(&admin, &false);
+    assert!(!client.is_paused());
+
+    // Settlement now executes successfully
+    let receipt = client.execute_split_settlement(&caller, &track_id, &10_000_0000, &None);
+    assert_eq!(receipt.gross_amount, 10_000_0000);
+}
