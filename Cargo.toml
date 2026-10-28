@@ -9,7 +9,7 @@ keywords = ["soroban", "stellar", "music", "streaming", "royalty-settlement"]
 categories = ["cryptography::cryptocurrencies", "wasm"]
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = "22.0.6"
