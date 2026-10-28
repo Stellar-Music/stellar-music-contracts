@@ -760,3 +760,59 @@ fn test_bulk_pass_check_and_listener_pass_count() {
     assert_eq!(results.get(1), Some(false)); // t2: not owned
     assert_eq!(results.get(2), Some(true));  // t3: owned
 }
+
+#[test]
+fn test_fuzz_purchase_pass_boundaries() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_client = TokenClient::new(&env, &token_id.address());
+    let token_admin_client = StellarAssetClient::new(&env, &token_id.address());
+
+    let artist = Address::generate(&env);
+
+    // Boundary 1: Price below minimum (99_999) must fail
+    let below_min = client.try_register_track(
+        &artist,
+        &99_999,
+        &String::from_str(&env, "ipfs://below_min"),
+    );
+    assert_eq!(below_min, Err(Ok(Error::PriceTooLow)));
+
+    // Boundary 2: Free track (0) succeeds and allows purchase without tokens
+    let free_track_id = client.register_track(
+        &artist,
+        &0,
+        &String::from_str(&env, "ipfs://free_track"),
+    );
+    let listener_free = Address::generate(&env);
+    let pass_free = client.purchase_pass(&listener_free, &free_track_id, &token_id.address());
+    assert_eq!(pass_free.amount_paid, 0);
+    assert!(client.has_valid_pass(&listener_free, &free_track_id));
+
+    // Boundary 3: Exact minimum pass price (MIN_PASS_PRICE = 100_000)
+    let min_track_id = client.register_track(
+        &artist,
+        &MIN_PASS_PRICE,
+        &String::from_str(&env, "ipfs://min_price_track"),
+    );
+    let listener_exact = Address::generate(&env);
+    token_admin_client.mint(&listener_exact, &MIN_PASS_PRICE);
+
+    let pass_min = client.purchase_pass(&listener_exact, &min_track_id, &token_id.address());
+    assert_eq!(pass_min.amount_paid, MIN_PASS_PRICE);
+    assert_eq!(token_client.balance(&listener_exact), 0);
+    assert_eq!(token_client.balance(&artist), MIN_PASS_PRICE);
+
+    // Boundary 4: Re-purchase rejection
+    let re_purchase = client.try_purchase_pass(&listener_exact, &min_track_id, &token_id.address());
+    assert_eq!(re_purchase, Err(Ok(Error::PassAlreadyPurchased)));
+}
