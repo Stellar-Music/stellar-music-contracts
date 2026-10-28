@@ -1126,3 +1126,54 @@ fn test_unauthorized_signer_rejection() {
     let hack_admin = client.try_set_admin(&attacker, &attacker);
     assert_eq!(hack_admin, Err(Ok(Error::NotAuthorized)));
 }
+
+#[test]
+fn test_sac_token_transfer_cross_contract() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    // Deploy SAC Token A (XLM representation)
+    let sac_admin_a = Address::generate(&env);
+    let token_a_id = env.register_stellar_asset_contract_v2(sac_admin_a.clone());
+    let token_a_client = TokenClient::new(&env, &token_a_id.address());
+    let token_a_admin = StellarAssetClient::new(&env, &token_a_id.address());
+
+    // Deploy SAC Token B (USDC representation)
+    let sac_admin_b = Address::generate(&env);
+    let token_b_id = env.register_stellar_asset_contract_v2(sac_admin_b.clone());
+    let token_b_client = TokenClient::new(&env, &token_b_id.address());
+    let token_b_admin = StellarAssetClient::new(&env, &token_b_id.address());
+
+    let artist_a = Address::generate(&env);
+    let artist_b = Address::generate(&env);
+    let listener = Address::generate(&env);
+
+    let price_a: i128 = 10_000_0000; // 10 XLM
+    let price_b: i128 = 25_000_0000; // 25 USDC
+
+    token_a_admin.mint(&listener, &price_a);
+    token_b_admin.mint(&listener, &price_b);
+
+    let track_a = client.register_track(&artist_a, &price_a, &String::from_str(&env, "ipfs://track-a"));
+    let track_b = client.register_track(&artist_b, &price_b, &String::from_str(&env, "ipfs://track-b"));
+
+    // Cross-contract call to Token A
+    client.purchase_pass(&listener, &track_a, &token_a_id.address());
+    assert_eq!(token_a_client.balance(&listener), 0);
+    assert_eq!(token_a_client.balance(&artist_a), price_a);
+    assert_eq!(token_b_client.balance(&listener), price_b); // Token B untouched
+
+    // Cross-contract call to Token B
+    client.purchase_pass(&listener, &track_b, &token_b_id.address());
+    assert_eq!(token_b_client.balance(&listener), 0);
+    assert_eq!(token_b_client.balance(&artist_b), price_b);
+
+    assert!(client.has_valid_pass(&listener, &track_a));
+    assert!(client.has_valid_pass(&listener, &track_b));
+}
