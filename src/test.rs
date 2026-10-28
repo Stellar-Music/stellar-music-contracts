@@ -1089,3 +1089,40 @@ fn test_contract_event_emission_verification() {
     let all_events = env.events().all();
     assert!(!all_events.is_empty(), "Events should be recorded on chain actions");
 }
+
+#[test]
+fn test_unauthorized_signer_rejection() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://legit-audio"));
+
+    let attacker = Address::generate(&env);
+
+    // 1. Attacker attempts to update track price
+    let hack_price = client.try_update_track(&attacker, &track_id, &100_000, &true);
+    assert_eq!(hack_price, Err(Ok(Error::NotAuthorized)));
+
+    // 2. Attacker attempts to archive track
+    let hack_archive = client.try_archive_track(&attacker, &track_id);
+    assert_eq!(hack_archive, Err(Ok(Error::NotAuthorized)));
+
+    // 3. Attacker attempts to change metadata URI
+    let hack_uri = client.try_update_metadata_uri(&attacker, &track_id, &String::from_str(&env, "ipfs://malicious"));
+    assert_eq!(hack_uri, Err(Ok(Error::NotAuthorized)));
+
+    // 4. Attacker attempts to pause contract
+    let hack_pause = client.try_set_paused(&attacker, &true);
+    assert_eq!(hack_pause, Err(Ok(Error::NotAuthorized)));
+
+    // 5. Attacker attempts to take over admin
+    let hack_admin = client.try_set_admin(&attacker, &attacker);
+    assert_eq!(hack_admin, Err(Ok(Error::NotAuthorized)));
+}
