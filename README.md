@@ -4,8 +4,7 @@
 [![Stellar Testnet](https://img.shields.io/badge/Stellar_Testnet-live_contract-brightgreen?style=for-the-badge&logo=stellar)](https://stellar.expert/explorer/testnet/contract/CBUNX6PF4OOFGQ434IBVCLRBR6OBQOM5PTYUES7X6KSN2AIER6VMJK7K)
 [![Soroban SDK](https://img.shields.io/badge/Soroban%20SDK-v22.0.0-purple?style=for-the-badge)](https://stellar.org)
 [![Tests](https://img.shields.io/badge/Contract%20Tests-34%2F34%20Passing-emerald?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts)
-[![Release](https://img.shields.io/badge/Release-v1.1.0--wave-blueviolet?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts/releases/tag/v1.1.0-wave)
-[![Drips Wave Appeal](https://img.shields.io/badge/Drips%20Wave-Appeal%20Dossier-blue?style=for-the-badge)](docs/DRIPS_WAVE_APPEAL.md)
+[![Release](https://img.shields.io/badge/Release-v1.1.0-blueviolet?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts/releases/tag/v1.1.0-wave)
 [![CI Status](https://img.shields.io/badge/CI%20Build-Passing-brightgreen?style=for-the-badge&logo=githubactions)](https://github.com/Stellar-Music/stellar-music-contracts/actions)
 
 The decentralized financial engine and settlement protocol for **Stellar Music**, built on **Soroban (Rust SDK v22)** for the **Stellar Network**.
@@ -23,7 +22,6 @@ Stellar Music is engineered as a three-tier decentralized streaming application:
 | **[`stellar-music-frontend`](https://github.com/Stellar-Music/stellar-music-frontend)** | Reactive Web3 player, PWA, Freighter wallet connector | React 18 / TypeScript / Vite / Tailwind | **Live** | **130 / 130** |
 
 * **Total Protocol Automated Tests**: **253 / 253 passing** across contracts, backend, and frontend.
-* **Official Drips Wave Appeal Dossier**: [`docs/DRIPS_WAVE_APPEAL.md`](docs/DRIPS_WAVE_APPEAL.md)
 * **Live Production dApp**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
 
 ---
