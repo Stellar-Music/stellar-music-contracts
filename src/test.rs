@@ -1000,3 +1000,69 @@ fn test_pass_timestamp_and_ledger_sequence_invariant() {
     assert!(p2.purchased_at > p1.purchased_at);
     assert!(p2.ledger_sequence > p1.ledger_sequence);
 }
+
+#[test]
+fn test_artist_treasury_withdraw() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let treasury = Address::generate(&env);
+    let fee_bps: u32 = 250; // 2.5% protocol fee
+    client.set_platform_fee(&admin, &treasury, &fee_bps);
+
+    assert_eq!(client.get_platform_fee_bps(), 250);
+    assert_eq!(client.get_treasury(), Some(treasury.clone()));
+
+    // Token setup
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_client = TokenClient::new(&env, &token_id.address());
+    let token_admin_client = StellarAssetClient::new(&env, &token_id.address());
+
+    let pool_caller = Address::generate(&env);
+    let gross_pool: i128 = 10_000_0000; // 10 XLM
+    token_admin_client.mint(&pool_caller, &gross_pool);
+
+    let artist = Address::generate(&env);
+    let producer = Address::generate(&env);
+    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://audio"));
+
+    let recipients = soroban_sdk::vec![
+        &env,
+        SplitRecipient {
+            recipient: artist.clone(),
+            role: symbol_short!("artist"),
+            share_basis_points: 7000, // 70%
+        },
+        SplitRecipient {
+            recipient: producer.clone(),
+            role: symbol_short!("producer"),
+            share_basis_points: 3000, // 30%
+        },
+    ];
+
+    let hash = BytesN::from_array(&env, &[12u8; 32]);
+    let version = client.create_split_agreement(&artist, &track_id, &hash, &recipients);
+    client.approve_split_agreement(&producer, &track_id, &version, &hash);
+
+    let receipt = client.execute_split_settlement(
+        &pool_caller,
+        &track_id,
+        &gross_pool,
+        &Some(token_id.address()),
+    );
+
+    assert_eq!(receipt.gross_amount, gross_pool);
+    assert_eq!(receipt.recipient_count, 2);
+
+    // Verify recipient balances after on-chain transfer
+    assert_eq!(token_client.balance(&artist), 7_000_0000); // 7 XLM
+    assert_eq!(token_client.balance(&producer), 3_000_0000); // 3 XLM
+    assert_eq!(token_client.balance(&pool_caller), 0);
+}
