@@ -1,0 +1,27 @@
+name: "Feature Request / Soroban Proposal"
+description: "Suggest an idea or enhancement for Stellar Music contracts"
+title: "[Proposal]: "
+labels: ["enhancement", "soroban-contracts"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thank you for proposing an enhancement to our Soroban contracts!"
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or Need"
+      description: "Is your feature request related to a problem or new protocol requirement?"
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution"
+      description: "Describe the proposed contract method, data structure, or settlement logic."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "Any alternative solutions or features you've considered."
