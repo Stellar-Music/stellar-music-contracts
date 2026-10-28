@@ -1,0 +1,200 @@
+{
+  "contract": "StellarMusicContract",
+  "version": "1.1.0",
+  "network": "testnet",
+  "methods": [
+    {
+      "name": "initialize",
+      "doc": "Initialize the platform contract with an administrator address",
+      "inputs": [{ "name": "admin", "type": "Address" }],
+      "outputs": [{ "type": "Result<(), Error>" }]
+    },
+    {
+      "name": "get_contract_version",
+      "doc": "Return semantic version tuple (major, minor, patch)",
+      "inputs": [],
+      "outputs": [{ "type": "(u32, u32, u32)" }]
+    },
+    {
+      "name": "set_admin",
+      "doc": "Transfer administrator authority to a new address",
+      "inputs": [
+        { "name": "current_admin", "type": "Address" },
+        { "name": "new_admin", "type": "Address" }
+      ],
+      "outputs": [{ "type": "Result<(), Error>" }]
+    },
+    {
+      "name": "is_paused",
+      "doc": "Check whether the protocol is currently paused",
+      "inputs": [],
+      "outputs": [{ "type": "bool" }]
+    },
+    {
+      "name": "set_paused",
+      "doc": "Admin control to pause or unpause protocol operations",
+      "inputs": [
+        { "name": "admin", "type": "Address" },
+        { "name": "paused", "type": "bool" }
+      ],
+      "outputs": [{ "type": "Result<(), Error>" }]
+    },
+    {
+      "name": "extend_ttl",
+      "doc": "Extend contract storage time-to-live (TTL)",
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "name": "register_track",
+      "doc": "Register a new track catalog item with pricing floor enforcement",
+      "inputs": [
+        { "name": "artist", "type": "Address" },
+        { "name": "pass_price", "type": "i128" },
+        { "name": "metadata_uri", "type": "String" }
+      ],
+      "outputs": [{ "type": "Result<u64, Error>" }]
+    },
+    {
+      "name": "update_track",
+      "doc": "Update track active status or pass price",
+      "inputs": [
+        { "name": "artist", "type": "Address" },
+        { "name": "track_id", "type": "u64" },
+        { "name": "pass_price", "type": "i128" },
+        { "name": "is_active", "type": "bool" }
+      ],
+      "outputs": [{ "type": "Result<(), Error>" }]
+    },
+    {
+      "name": "archive_track",
+      "doc": "Permanently archive a track, preventing pass purchases",
+      "inputs": [
+        { "name": "artist", "type": "Address" },
+        { "name": "track_id", "type": "u64" }
+      ],
+      "outputs": [{ "type": "Result<(), Error>" }]
+    },
+    {
+      "name": "is_track_archived",
+      "doc": "Check if a track is archived",
+      "inputs": [{ "name": "track_id", "type": "u64" }],
+      "outputs": [{ "type": "bool" }]
+    },
+    {
+      "name": "update_metadata_uri",
+      "doc": "Update track decentralized metadata URI",
+      "inputs": [
+        { "name": "artist", "type": "Address" },
+        { "name": "track_id", "type": "u64" },
+        { "name": "metadata_uri", "type": "String" }
+      ],
+      "outputs": [{ "type": "Result<(), Error>" }]
+    },
+    {
+      "name": "purchase_pass",
+      "doc": "Purchase a non-custodial music access pass",
+      "inputs": [
+        { "name": "listener", "type": "Address" },
+        { "name": "track_id", "type": "u64" },
+        { "name": "token", "type": "Address" }
+      ],
+      "outputs": [{ "type": "Result<PassInfo, Error>" }]
+    },
+    {
+      "name": "has_valid_pass",
+      "doc": "Check if a listener owns a valid access pass for a track",
+      "inputs": [
+        { "name": "listener", "type": "Address" },
+        { "name": "track_id", "type": "u64" }
+      ],
+      "outputs": [{ "type": "bool" }]
+    },
+    {
+      "name": "has_passes_batch",
+      "doc": "Batch check pass ownership across multiple track IDs",
+      "inputs": [
+        { "name": "listener", "type": "Address" },
+        { "name": "track_ids", "type": "Vec<u64>" }
+      ],
+      "outputs": [{ "type": "Vec<bool>" }]
+    },
+    {
+      "name": "get_listener_pass_count",
+      "doc": "Query total passes purchased by a listener",
+      "inputs": [{ "name": "listener", "type": "Address" }],
+      "outputs": [{ "type": "u64" }]
+    },
+    {
+      "name": "get_track",
+      "doc": "Get track metadata and pricing info",
+      "inputs": [{ "name": "track_id", "type": "u64" }],
+      "outputs": [{ "type": "Option<TrackInfo>" }]
+    },
+    {
+      "name": "get_track_pass_price",
+      "doc": "Lightweight track pass price query",
+      "inputs": [{ "name": "track_id", "type": "u64" }],
+      "outputs": [{ "type": "Option<i128>" }]
+    },
+    {
+      "name": "get_track_pool_balance",
+      "doc": "Query track deposited revenue balance",
+      "inputs": [{ "name": "track_id", "type": "u64" }],
+      "outputs": [{ "type": "i128" }]
+    },
+    {
+      "name": "deposit_track_revenue",
+      "doc": "Deposit funds into track pool balance",
+      "inputs": [
+        { "name": "caller", "type": "Address" },
+        { "name": "track_id", "type": "u64" },
+        { "name": "amount", "type": "i128" },
+        { "name": "token", "type": "Option<Address>" }
+      ],
+      "outputs": [{ "type": "Result<i128, Error>" }]
+    },
+    {
+      "name": "create_split_agreement",
+      "doc": "Create multi-recipient 10,000 basis points split agreement",
+      "inputs": [
+        { "name": "artist", "type": "Address" },
+        { "name": "track_id", "type": "u64" },
+        { "name": "agreement_hash", "type": "BytesN<32>" },
+        { "name": "recipients", "type": "Vec<SplitRecipient>" }
+      ],
+      "outputs": [{ "type": "Result<u32, Error>" }]
+    },
+    {
+      "name": "approve_split_agreement",
+      "doc": "Sign split agreement as a collaborator",
+      "inputs": [
+        { "name": "contributor", "type": "Address" },
+        { "name": "track_id", "type": "u64" },
+        { "name": "version", "type": "u32" },
+        { "name": "agreement_hash", "type": "BytesN<32>" }
+      ],
+      "outputs": [{ "type": "Result<bool, Error>" }]
+    },
+    {
+      "name": "calculate_split_allocations",
+      "doc": "Compute integer basis points stroop distribution with dust allocation",
+      "inputs": [
+        { "name": "track_id", "type": "u64" },
+        { "name": "gross_amount", "type": "i128" }
+      ],
+      "outputs": [{ "type": "Result<Vec<RecipientPayout>, Error>" }]
+    },
+    {
+      "name": "execute_split_settlement",
+      "doc": "Execute atomic multi-recipient revenue settlement",
+      "inputs": [
+        { "name": "caller", "type": "Address" },
+        { "name": "track_id", "type": "u64" },
+        { "name": "gross_amount", "type": "i128" },
+        { "name": "token", "type": "Option<Address>" }
+      ],
+      "outputs": [{ "type": "Result<SettlementReceipt, Error>" }]
+    }
+  ]
+}
