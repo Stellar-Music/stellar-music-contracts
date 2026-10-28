@@ -1,3 +1,9 @@
+//! # 🎵 Stellar Music Soroban Smart Contracts
+//!
+//! Decentralized music streaming and automated royalty settlement protocol
+//! built on Soroban (Stellar) with non-custodial passes, cryptographic 10,000 bps
+//! split agreements, zero-leak integer stroop arithmetic, and multi-recipient settlement.
+
 #![no_std]
 
 use soroban_sdk::{
