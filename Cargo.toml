@@ -2,6 +2,11 @@
 name = "stellar-music-contracts"
 version = "0.1.0"
 edition = "2021"
+description = "Decentralized music streaming and automated royalty settlement protocol on Soroban"
+license = "Apache-2.0"
+repository = "https://github.com/Stellar-Music/stellar-music-contracts"
+keywords = ["soroban", "stellar", "music", "streaming", "royalty-settlement"]
+categories = ["cryptography::cryptocurrencies", "wasm"]
 
 [lib]
 crate-type = ["rlib"]
@@ -21,3 +26,8 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
+
+[profile.bench]
+opt-level = 3
+lto = true
+codegen-units = 1
