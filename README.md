@@ -3,7 +3,7 @@
 [![Live Application](https://img.shields.io/badge/Live%20App-stellar--music--app.netlify.app-00f2fe?style=for-the-badge)](https://stellar-music-app.netlify.app)
 [![Stellar Testnet](https://img.shields.io/badge/Stellar_Testnet-live_contract-brightgreen?style=for-the-badge&logo=stellar)](https://stellar.expert/explorer/testnet/contract/CBUNX6PF4OOFGQ434IBVCLRBR6OBQOM5PTYUES7X6KSN2AIER6VMJK7K)
 [![Soroban SDK](https://img.shields.io/badge/Soroban%20SDK-v22.0.0-purple?style=for-the-badge)](https://stellar.org)
-[![Tests](https://img.shields.io/badge/Contract%20Tests-12%2F12%20Passing-emerald?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts)
+[![Tests](https://img.shields.io/badge/Contract%20Tests-34%2F34%20Passing-emerald?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts)
 
 The decentralized financial engine and settlement protocol for **Stellar Music**, built on **Soroban (Rust SDK v22)** for the **Stellar Network**.
 
@@ -85,6 +85,10 @@ Watch the complete Soroban contract execution, multi-contributor split agreement
 | `get_active_locked_split` | `track_id: u64` | `Option<SplitAgreement>` | Fetches active locked agreement ready for settlement execution. |
 | `calculate_split_allocations` | `track_id: u64`, `gross_amount: i128` | `Result<Vec<RecipientPayout>, Error>` | Pure dry-run calculation returning exact stroop allocations and dust assignment. |
 | `execute_split_settlement` | `caller: Address`, `track_id: u64`, `gross_amount: i128`, `token: Option<Address>` | `Result<SettlementReceipt, Error>` | Executes atomic multi-recipient transfer on Stellar backed by locked agreement. Emits `settle::exec`. |
+| `upgrade` | `admin: Address`, `new_wasm_hash: BytesN<32>` | `Result<(), Error>` | Upgrades contract bytecode via Soroban deployer. Requires admin auth. |
+| `set_paused` | `admin: Address`, `paused: bool` | `Result<(), Error>` | Emergency circuit breaker to pause/unpause contract operations. |
+| `is_paused` | *None* | `bool` | Checks if contract operations are currently paused. |
+| `get_contract_version` | *None* | `(u32, u32, u32)` | Returns semantic contract version tuple `(major, minor, patch)`. |
 | `get_settlement` | `settlement_id: u64` | `Option<SettlementReceipt>` | Queries on-chain settlement receipt by global settlement index. |
 | `get_settlement_count` | *None* | `u64` | Returns total lifetime settlements executed on the contract. |
 | `get_track_settled_total` | `track_id: u64` | `i128` | Returns lifetime cumulative settled amount for a specific track. |
