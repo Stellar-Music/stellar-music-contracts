@@ -11,33 +11,58 @@ use soroban_sdk::{
     token, Address, BytesN, Env, String, Symbol, Vec,
 };
 
+/// Protocol Error codes returned by smart contract invocations
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
+    /// Contract instance has already been initialized
     AlreadyInitialized = 1,
+    /// Contract instance requires initialization prior to use
     NotInitialized = 2,
+    /// Caller does not possess required authorization or cryptographic signature
     NotAuthorized = 3,
+    /// Specified track ID does not exist in persistent storage
     TrackNotFound = 4,
+    /// Track is marked inactive by the creator
     TrackInactive = 5,
+    /// Listener already holds a valid music pass for this track
     PassAlreadyPurchased = 6,
+    /// Price parameter is invalid or negative
     InvalidPrice = 7,
+    /// Collaborator basis points sum does not equal exactly 10,000 (100.00%)
     InvalidBasisPoints = 8,
+    /// Split agreement has already received all approvals and is permanently locked
     SplitAlreadyLocked = 9,
+    /// Specified revenue split agreement was not found
     AgreementNotFound = 10,
+    /// Caller is not an authorized collaborator in this split agreement
     NotARecipient = 11,
+    /// Collaborator has already registered approval for this agreement version
     AlreadyApproved = 12,
+    /// Submitted terms hash does not match canonical agreement hash
     HashMismatch = 13,
+    /// Contributor list contains duplicate recipient addresses
     DuplicateRecipient = 14,
+    /// Contributor recipient list cannot be empty
     NoRecipients = 15,
+    /// Revenue settlement requires a LOCKED agreement
     AgreementNotLocked = 16,
+    /// Settlement distribution gross amount must be strictly positive
     InvalidSettlementAmount = 17,
+    /// Contract is currently paused under emergency circuit breaker
     ContractPaused = 18,
+    /// Pass price is below the MIN_PASS_PRICE floor
     PriceTooLow = 19,
+    /// Number of split recipients exceeds MAX_RECIPIENTS limit
     TooManyRecipients = 20,
+    /// Track is archived and cannot receive new pass purchases
     TrackArchived = 21,
+    /// Metadata URI string cannot be empty
     MetadataUriEmpty = 22,
+    /// Platform fee basis points exceed MAX_PLATFORM_FEE_BPS ceiling
     InvalidFeeBps = 23,
+    /// Deposit amount must be strictly greater than zero
     ZeroDeposit = 24,
 }
 
