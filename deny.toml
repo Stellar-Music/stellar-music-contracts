@@ -1,0 +1,32 @@
+# Cargo Deny Configuration for Stellar Music Smart Contracts
+
+[advisories]
+vulnerability = "deny"
+unmaintained = "warn"
+notice = "warn"
+yanked = "warn"
+ignore = []
+
+[licenses]
+unlicensed = "deny"
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "CC0-1.0",
+  "Unicode-DFS-2016"
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
