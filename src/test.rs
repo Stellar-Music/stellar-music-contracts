@@ -1232,3 +1232,65 @@ fn test_maximum_supply_cap_invariant() {
         assert_eq!(client.get_total_passes(), 5);
     }
 }
+
+#[test]
+fn test_signature_replay_defense() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let collaborator = Address::generate(&env);
+    let track_id = client.register_track(&artist, &1_000_0000, &String::from_str(&env, "ipfs://split-track"));
+
+    let recipients = soroban_sdk::vec![
+        &env,
+        SplitRecipient {
+            recipient: artist.clone(),
+            role: symbol_short!("artist"),
+            share_basis_points: 6000,
+        },
+        SplitRecipient {
+            recipient: collaborator.clone(),
+            role: symbol_short!("producer"),
+            share_basis_points: 4000,
+        },
+    ];
+
+    let legitimate_hash = BytesN::from_array(&env, &[0xAA; 32]);
+    let replayed_foreign_hash = BytesN::from_array(&env, &[0xBB; 32]); // Different network or terms hash
+
+    let version = client.create_split_agreement(&artist, &track_id, &legitimate_hash, &recipients);
+
+    // 1. Replay attempt with mismatched/foreign terms hash fails immediately
+    let replay_err = client.try_approve_split_agreement(
+        &collaborator,
+        &track_id,
+        &version,
+        &replayed_foreign_hash,
+    );
+    assert_eq!(replay_err, Err(Ok(Error::HashMismatch)));
+
+    // 2. Legitimate approval succeeds
+    let is_locked = client.approve_split_agreement(
+        &collaborator,
+        &track_id,
+        &version,
+        &legitimate_hash,
+    );
+    assert!(is_locked);
+
+    // 3. Duplicate approval replay attempt fails with SplitAlreadyLocked
+    let duplicate_attempt = client.try_approve_split_agreement(
+        &collaborator,
+        &track_id,
+        &version,
+        &legitimate_hash,
+    );
+    assert_eq!(duplicate_attempt, Err(Ok(Error::SplitAlreadyLocked)));
+}
