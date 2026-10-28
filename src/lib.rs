@@ -184,6 +184,25 @@ impl StellarMusicContract {
         Ok(())
     }
 
+    /// Upgrade contract WASM bytecode to a new installed hash (admin only)
+    pub fn upgrade(env: Env, admin: Address, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::NotInitialized)?;
+        if admin != stored_admin {
+            return Err(Error::NotAuthorized);
+        }
+        env.deployer().update_current_contract_wasm(new_wasm_hash.clone());
+        env.events().publish(
+            (symbol_short!("contract"), symbol_short!("upgrd")),
+            new_wasm_hash,
+        );
+        Ok(())
+    }
+
     /// Configure platform fee treasury address and basis points (capped at MAX_PLATFORM_FEE_BPS)
     pub fn set_platform_fee(
         env: Env,

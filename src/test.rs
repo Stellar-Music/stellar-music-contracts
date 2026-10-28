@@ -1177,3 +1177,22 @@ fn test_sac_token_transfer_cross_contract() {
     assert!(client.has_valid_pass(&listener, &track_a));
     assert!(client.has_valid_pass(&listener, &track_b));
 }
+
+#[test]
+fn test_contract_upgrade() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let attacker = Address::generate(&env);
+    let dummy_hash = BytesN::from_array(&env, &[0x42; 32]);
+
+    // Unauthorized upgrade attempt must fail
+    let err = client.try_upgrade(&attacker, &dummy_hash);
+    assert_eq!(err, Err(Ok(Error::NotAuthorized)));
+}
