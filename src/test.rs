@@ -1344,3 +1344,32 @@ fn test_emergency_pause_settlement_blocking() {
     let receipt = client.execute_split_settlement(&caller, &track_id, &10_000_0000, &None);
     assert_eq!(receipt.gross_amount, 10_000_0000);
 }
+
+#[test]
+fn test_contract_error_codes_exhaustive() {
+    // Assert explicit numeric discriminator values matching ABI contract specifications
+    assert_eq!(Error::AlreadyInitialized as u32, 1);
+    assert_eq!(Error::NotInitialized as u32, 2);
+    assert_eq!(Error::NotAuthorized as u32, 3);
+    assert_eq!(Error::TrackNotFound as u32, 4);
+    assert_eq!(Error::TrackInactive as u32, 5);
+    assert_eq!(Error::PassAlreadyPurchased as u32, 6);
+    assert_eq!(Error::InvalidPrice as u32, 7);
+    assert_eq!(Error::InvalidBasisPoints as u32, 8);
+    assert_eq!(Error::SplitAlreadyLocked as u32, 9);
+    assert_eq!(Error::AgreementNotFound as u32, 10);
+    assert_eq!(Error::NotARecipient as u32, 11);
+    assert_eq!(Error::AlreadyApproved as u32, 12);
+    assert_eq!(Error::HashMismatch as u32, 13);
+    assert_eq!(Error::DuplicateRecipient as u32, 14);
+    assert_eq!(Error::NoRecipients as u32, 15);
+    assert_eq!(Error::AgreementNotLocked as u32, 16);
+    assert_eq!(Error::InvalidSettlementAmount as u32, 17);
+    assert_eq!(Error::ContractPaused as u32, 18);
+    assert_eq!(Error::PriceTooLow as u32, 19);
+    assert_eq!(Error::TooManyRecipients as u32, 20);
+    assert_eq!(Error::TrackArchived as u32, 21);
+    assert_eq!(Error::MetadataUriEmpty as u32, 22);
+    assert_eq!(Error::InvalidFeeBps as u32, 23);
+    assert_eq!(Error::ZeroDeposit as u32, 24);
+}
