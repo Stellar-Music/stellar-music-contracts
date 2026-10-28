@@ -602,3 +602,161 @@ fn test_maximum_recipients_limit() {
     let res = client.try_create_split_agreement(&artist, &track_id, &hash, &recipients);
     assert!(res.is_err());
 }
+
+
+#[test]
+fn test_contract_version() {
+    let env = Env::default();
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let (major, minor, patch) = client.get_contract_version();
+    assert_eq!(major, 1);
+    assert_eq!(minor, 1);
+    assert_eq!(patch, 0);
+}
+
+#[test]
+fn test_admin_transfer_and_authorization() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let imposter = Address::generate(&env);
+
+    client.initialize(&admin1);
+
+    // Imposter cannot transfer admin
+    let imposter_res = client.try_set_admin(&imposter, &imposter);
+    assert!(imposter_res.is_err());
+
+    // Valid admin transfers to admin2
+    client.set_admin(&admin1, &admin2);
+
+    // Old admin can no longer set paused
+    let pause_err = client.try_set_paused(&admin1, &true);
+    assert!(pause_err.is_err());
+
+    // New admin can pause
+    client.set_paused(&admin2, &true);
+    assert_eq!(client.is_paused(), true);
+}
+
+#[test]
+fn test_platform_fee_configuration_and_caps() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.initialize(&admin);
+
+    assert_eq!(client.get_platform_fee_bps(), 0);
+    assert_eq!(client.get_treasury(), None);
+
+    // 250 bps = 2.50% fee
+    client.set_platform_fee(&admin, &treasury, &250);
+    assert_eq!(client.get_platform_fee_bps(), 250);
+    assert_eq!(client.get_treasury(), Some(treasury.clone()));
+
+    // Fee exceeding 1000 bps (10%) must fail
+    let excessive_err = client.try_set_platform_fee(&admin, &treasury, &1001);
+    assert!(excessive_err.is_err());
+}
+
+#[test]
+fn test_track_archive_and_purchase_blocking() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let artist = Address::generate(&env);
+    let listener = Address::generate(&env);
+
+    let track_id = client.register_track(&artist, &100_000, &String::from_str(&env, "ipfs://song"));
+    assert_eq!(client.is_track_archived(&track_id), false);
+
+    // Archive track
+    client.archive_track(&artist, &track_id);
+    assert_eq!(client.is_track_archived(&track_id), true);
+
+    // Purchasing an archived track must fail
+    let res = client.try_purchase_pass(&listener, &track_id, &token_id.address());
+    assert!(res.is_err());
+
+    // Updating an archived track must fail
+    let upd_res = client.try_update_track(&artist, &track_id, &200_000, &false);
+    assert!(upd_res.is_err());
+}
+
+#[test]
+fn test_update_metadata_uri_and_validation() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let track_id = client.register_track(&artist, &100_000, &String::from_str(&env, "ipfs://old"));
+
+    // Empty URI fails
+    let empty_err = client.try_update_metadata_uri(&artist, &track_id, &String::from_str(&env, ""));
+    assert!(empty_err.is_err());
+
+    // Valid update
+    client.update_metadata_uri(&artist, &track_id, &String::from_str(&env, "ipfs://new-album-art"));
+    let track = client.get_track(&track_id).unwrap();
+    assert_eq!(track.metadata_uri, String::from_str(&env, "ipfs://new-album-art"));
+}
+
+#[test]
+fn test_bulk_pass_check_and_listener_pass_count() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let listener = Address::generate(&env);
+
+    let t1 = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://1"));
+    let t2 = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://2"));
+    let t3 = client.register_track(&artist, &0, &String::from_str(&env, "ipfs://3"));
+
+    assert_eq!(client.get_listener_pass_count(&listener), 0);
+
+    let dummy_token = Address::generate(&env);
+    client.purchase_pass(&listener, &t1, &dummy_token);
+    client.purchase_pass(&listener, &t3, &dummy_token);
+
+    assert_eq!(client.get_listener_pass_count(&listener), 2);
+
+    let track_ids = soroban_sdk::vec![&env, t1, t2, t3];
+    let results = client.has_passes_batch(&listener, &track_ids);
+
+    assert_eq!(results.get(0), Some(true));  // t1: owned
+    assert_eq!(results.get(1), Some(false)); // t2: not owned
+    assert_eq!(results.get(2), Some(true));  // t3: owned
+}
