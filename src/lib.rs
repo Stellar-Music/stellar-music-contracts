@@ -26,7 +26,19 @@ pub enum Error {
     NoRecipients = 15,
     AgreementNotLocked = 16,
     InvalidSettlementAmount = 17,
+    ContractPaused = 18,
+    PriceTooLow = 19,
+    TooManyRecipients = 20,
+    TrackArchived = 21,
 }
+
+/// Minimum pass price floor: 0.01 XLM (100,000 stroops)
+pub const MIN_PASS_PRICE: i128 = 100_000;
+/// Maximum collaborator limit to prevent unbounded execution loops
+pub const MAX_RECIPIENTS: u32 = 25;
+/// Storage TTL extension parameters
+pub const STORAGE_TTL_THRESHOLD: u32 = 100_000;
+pub const STORAGE_TTL_EXTEND: u32 = 500_000;
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -97,6 +109,7 @@ pub struct RecipientPayout {
 #[contracttype]
 pub enum DataKey {
     Admin,
+    Paused,
     Track(u64),
     Pass(Address, u64),
     TrackCount,
@@ -120,9 +133,39 @@ impl StellarMusicContract {
             return Err(Error::AlreadyInitialized);
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::Paused, &false);
         env.storage().instance().set(&DataKey::TrackCount, &0u64);
         env.storage().instance().set(&DataKey::TotalPasses, &0u64);
         Ok(())
+    }
+
+    /// Check if the contract is paused
+    pub fn is_paused(env: Env) -> bool {
+        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    /// Admin emergency control to pause or unpause protocol operations
+    pub fn set_paused(env: Env, admin: Address, paused: bool) -> Result<(), Error> {
+        admin.require_auth();
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::NotInitialized)?;
+        if admin != stored_admin {
+            return Err(Error::NotAuthorized);
+        }
+        env.storage().instance().set(&DataKey::Paused, &paused);
+        env.events().publish(
+            (symbol_short!("contract"), symbol_short!("pause")),
+            paused,
+        );
+        Ok(())
+    }
+
+    /// Extend instance and persistent storage TTL
+    pub fn extend_ttl(env: Env) {
+        env.storage().instance().extend_ttl(STORAGE_TTL_THRESHOLD, STORAGE_TTL_EXTEND);
     }
 
     /// Register a new track by an artist (Level 1)
@@ -136,6 +179,9 @@ impl StellarMusicContract {
 
         if pass_price < 0 {
             return Err(Error::InvalidPrice);
+        }
+        if pass_price > 0 && pass_price < MIN_PASS_PRICE {
+            return Err(Error::PriceTooLow);
         }
 
         let mut count: u64 = env
@@ -187,6 +233,9 @@ impl StellarMusicContract {
         if pass_price < 0 {
             return Err(Error::InvalidPrice);
         }
+        if pass_price > 0 && pass_price < MIN_PASS_PRICE {
+            return Err(Error::PriceTooLow);
+        }
 
         track.pass_price = pass_price;
         track.is_active = is_active;
@@ -208,6 +257,10 @@ impl StellarMusicContract {
         token: Address,
     ) -> Result<PassInfo, Error> {
         listener.require_auth();
+
+        if Self::is_paused(env.clone()) {
+            return Err(Error::ContractPaused);
+        }
 
         let track_key = DataKey::Track(track_id);
         let track: TrackInfo = env
@@ -267,6 +320,12 @@ impl StellarMusicContract {
         env.storage().persistent().get(&DataKey::Track(track_id))
     }
 
+    /// Query lightweight track pass price without loading full metadata
+    pub fn get_track_pass_price(env: Env, track_id: u64) -> Option<i128> {
+        let track: TrackInfo = env.storage().persistent().get(&DataKey::Track(track_id))?;
+        Some(track.pass_price)
+    }
+
     /// Query Pass Information for a listener and track
     pub fn get_pass(env: Env, listener: Address, track_id: u64) -> Option<PassInfo> {
         env.storage().persistent().get(&DataKey::Pass(listener, track_id))
@@ -296,6 +355,10 @@ impl StellarMusicContract {
     ) -> Result<u32, Error> {
         artist.require_auth();
 
+        if Self::is_paused(env.clone()) {
+            return Err(Error::ContractPaused);
+        }
+
         let track: TrackInfo = env
             .storage()
             .persistent()
@@ -308,6 +371,10 @@ impl StellarMusicContract {
 
         if recipients.is_empty() {
             return Err(Error::NoRecipients);
+        }
+
+        if recipients.len() > MAX_RECIPIENTS {
+            return Err(Error::TooManyRecipients);
         }
 
         // Validate exactly 10,000 basis points (100.00%) & check for duplicate addresses
@@ -562,6 +629,10 @@ impl StellarMusicContract {
         token: Option<Address>,
     ) -> Result<SettlementReceipt, Error> {
         caller.require_auth();
+
+        if Self::is_paused(env.clone()) {
+            return Err(Error::ContractPaused);
+        }
 
         if gross_amount <= 0 {
             return Err(Error::InvalidSettlementAmount);
