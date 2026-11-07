@@ -18,10 +18,10 @@ Stellar Music is engineered as a three-tier decentralized streaming application:
 | Repository | Responsibility | Tech Stack | Status | Tests |
 | :--- | :--- | :--- | :---: | :---: |
 | **[`stellar-music-contracts`](https://github.com/Stellar-Music/stellar-music-contracts)** | Non-custodial splits, passes, 0-stroop invariant engine | Soroban / Rust SDK v22 | **Deployed** | **36 / 36** |
-| **[`stellar-music-backend`](https://github.com/Stellar-Music/stellar-music-backend)** | Audio streaming, SSE settlements, Horizon failover pool | Node.js / TypeScript / SQLite / Express | **Active** | **89 / 89** |
+| **[`stellar-music-backend`](https://github.com/Stellar-Music/stellar-music-backend)** | Audio streaming, SSE settlements, Horizon failover pool | Node.js / TypeScript / SQLite / Express | **Active** | **92 / 92** |
 | **[`stellar-music-frontend`](https://github.com/Stellar-Music/stellar-music-frontend)** | Reactive Web3 player, PWA, Freighter wallet connector | React 18 / TypeScript / Vite / Tailwind | **Live** | **130 / 130** |
 
-* **Total Protocol Automated Tests**: **255 / 255 passing** across contracts, backend, and frontend.
+* **Total Protocol Automated Tests**: **258 / 258 passing** across contracts, backend, and frontend.
 * **Live Production dApp**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
 
 ---

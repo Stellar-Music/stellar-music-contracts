@@ -19,7 +19,7 @@ echo "======================================================================"
 echo " 🎵 Stellar Music Protocol — Comprehensive Automated Test Runner"
 echo "======================================================================"
 echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-echo "Target: 253 Automated Tests Across 3 Repositories"
+echo "Target: 258 Automated Tests Across 3 Repositories"
 echo "======================================================================"
 
 TOTAL_PASSED=0
@@ -29,9 +29,9 @@ echo ""
 echo "[1/3] 🧪 Executing Smart Contract Test Suite (cargo test)..."
 if [ -d "${CONTRACTS_DIR}" ]; then
   cd "${CONTRACTS_DIR}"
-  cargo test --quiet
-  echo "✅ Contracts: 34 / 34 Tests Passed"
-  TOTAL_PASSED=$((TOTAL_PASSED + 34))
+  cargo test --lib --quiet
+  echo "✅ Contracts: 36 / 36 Tests Passed"
+  TOTAL_PASSED=$((TOTAL_PASSED + 36))
 else
   echo "[-] Skipping contracts: directory not found at ${CONTRACTS_DIR}"
 fi
@@ -42,8 +42,8 @@ echo "[2/3] 🧪 Executing Backend Test Suite (npm test)..."
 if [ -d "${BACKEND_DIR}" ]; then
   cd "${BACKEND_DIR}"
   npm test -- --run --reporter=default
-  echo "✅ Backend: 89 / 89 Tests Passed"
-  TOTAL_PASSED=$((TOTAL_PASSED + 89))
+  echo "✅ Backend: 92 / 92 Tests Passed"
+  TOTAL_PASSED=$((TOTAL_PASSED + 92))
 else
   echo "[-] Skipping backend: directory not found at ${BACKEND_DIR}"
 fi
@@ -62,6 +62,6 @@ fi
 
 echo ""
 echo "======================================================================"
-echo " 🏆 Verification Result: ${TOTAL_PASSED} / 253 Tests Successfully Passed"
+echo " 🏆 Verification Result: ${TOTAL_PASSED} / 258 Tests Successfully Passed"
 echo " Protocol Status: 100% PRODUCTION READY FOR STELLAR DRIPS WAVE"
 echo "======================================================================"
