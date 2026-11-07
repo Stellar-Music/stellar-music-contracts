@@ -101,7 +101,9 @@ Watch the complete Soroban contract execution, multi-contributor split agreement
 | `get_split_agreement` | `track_id: u64`, `version: u32` | `Option<SplitAgreement>` | Queries full agreement metadata, version, terms, approvals, and lock state. |
 | `get_active_locked_split` | `track_id: u64` | `Option<SplitAgreement>` | Fetches active locked agreement ready for settlement execution. |
 | `calculate_split_allocations` | `track_id: u64`, `gross_amount: i128` | `Result<Vec<RecipientPayout>, Error>` | Pure dry-run calculation returning exact stroop allocations and dust assignment. |
-| `execute_split_settlement` | `caller: Address`, `track_id: u64`, `gross_amount: i128`, `token: Option<Address>` | `Result<SettlementReceipt, Error>` | Executes atomic multi-recipient transfer on Stellar backed by locked agreement. Emits `settle::exec`. |
+| `execute_split_settlement` | `caller: Address`, `track_id: u64`, `gross_amount: i128`, `token: Option<Address>` | `Result<SettlementReceipt, Error>` | Executes atomic multi-recipient transfer on Stellar backed by locked agreement. Disburses directly from escrow pool when funded. Emits `settle::done`. |
+| `deposit_track_revenue` | `depositor: Address`, `track_id: u64`, `amount: i128`, `token: Address` | `Result<i128, Error>` | Deposits streaming royalty revenue into track escrow pool. Extends persistent storage TTL. Emits `pool::dpst`. |
+| `withdraw_track_revenue` | `artist: Address`, `track_id: u64`, `amount: i128`, `token: Address` | `Result<i128, Error>` | Allows track artist to withdraw accumulated revenue from track escrow pool with authentication. Emits `pool::wthdrw`. |
 | `upgrade` | `admin: Address`, `new_wasm_hash: BytesN<32>` | `Result<(), Error>` | Upgrades contract bytecode via Soroban deployer. Requires admin auth. |
 | `set_paused` | `admin: Address`, `paused: bool` | `Result<(), Error>` | Emergency circuit breaker to pause/unpause contract operations. |
 | `is_paused` | *None* | `bool` | Checks if contract operations are currently paused. |
@@ -152,6 +154,13 @@ The contract implements strongly typed errors via `soroban_sdk::contracterror`. 
 | `15` | `NoRecipients` | Agreement was submitted with an empty recipient list. |
 | `16` | `AgreementNotLocked` | Settlement execution attempted on an agreement that has not been `LOCKED` by all contributors. |
 | `17` | `InvalidSettlementAmount` | Settlement gross amount must be strictly greater than zero (`gross_amount > 0`). |
+| `18` | `ContractPaused` | Contract is currently paused under emergency circuit breaker. |
+| `19` | `PriceTooLow` | Pass price is below the `MIN_PASS_PRICE` floor (0.01 XLM). |
+| `20` | `TooManyRecipients` | Number of split recipients exceeds `MAX_RECIPIENTS` limit (25). |
+| `21` | `TrackArchived` | Track is archived and cannot receive new pass purchases. |
+| `22` | `MetadataUriEmpty` | Metadata URI string cannot be empty. |
+| `23` | `InvalidFeeBps` | Platform fee basis points exceed `MAX_PLATFORM_FEE_BPS` ceiling (10.00%). |
+| `24` | `ZeroDeposit` | Revenue deposit amount must be strictly greater than zero. |
 
 ---
 
@@ -247,19 +256,43 @@ cargo test --lib
 cargo build --target wasm32-unknown-unknown --release
 ```
 
-All 12 automated test cases pass with zero failures:
+All 36 automated unit, security, and financial invariant test cases pass with zero failures:
 * `test_contract_initialization` — Initializes contract state and verifies admin configuration.
-* `test_register_track` — Registers track with pricing and metadata URI.
+* `test_contract_version` — Validates semantic versioning invariants `(1, 1, 0)`.
+* `test_contract_upgrade` — Verifies administrator-only WASM bytecode upgrades.
+* `test_admin_transfer_and_authorization` — Validates two-step admin role transfers with authentication.
+* `test_contract_error_codes_exhaustive` — Asserts all 24 typed Soroban error enum codes.
+* `test_contract_event_emission_verification` — Confirms event publication across track, pass, split, and settlement flows.
+* `test_emergency_pause_and_unpause` — Tests emergency circuit breaker operation toggling.
+* `test_emergency_pause_settlement_blocking` — Prohibits monetary settlements while contract is paused.
+* `test_register_track` — Registers track with pricing floor enforcement and metadata URI.
+* `test_update_metadata_uri_and_validation` — Updates track metadata and active status with artist authorization.
+* `test_track_archive_and_purchase_blocking` — Confirms archived tracks reject new pass purchases.
+* `test_minimum_pass_price_enforcement` — Rejects prices below the 0.01 XLM (100,000 stroops) floor.
 * `test_purchase_pass_and_payment_transfer` — Executes access pass purchase and non-custodial token transfer.
+* `test_tiered_pass_purchase` — Tests tiered pass purchases across multiple price levels.
+* `test_bulk_pass_check_and_listener_pass_count` — Validates listener pass inventory queries.
+* `test_pass_timestamp_and_ledger_sequence_invariant` — Verifies ledger timestamps and sequence recordings on passes.
+* `test_maximum_supply_cap_invariant` — Enforces pass supply limits.
 * `test_level2_create_split_agreement_success` — Creates new split agreement with multi-recipient share configuration.
 * `test_level2_reject_invalid_basis_points` — Rejects split agreements whose basis points do not sum to exactly 10,000 (100.00%).
 * `test_level2_reject_duplicate_recipient` — Enforces address uniqueness within a split agreement.
 * `test_level2_multi_party_signing_flow_and_lock` — Verifies multi-party cryptographic signature collection and automated transition to `LOCKED`.
 * `test_level2_non_recipient_cannot_approve` — Prevents unauthorized third parties from signing split agreements.
 * `test_level2_hash_mismatch_rejection` — Rejects approvals submitted against modified agreement terms.
+* `test_unauthorized_signer_rejection` — Blocks non-recipients from participating in agreement signing.
+* `test_maximum_recipients_limit` — Enforces `MAX_RECIPIENTS` boundary (25 recipients).
 * `test_level3_settlement_calculation_and_execution` — Computes 4-way multi-recipient settlement and verifies atomic execution.
 * `test_level3_settlement_rejection_when_unlocked` — Prohibits revenue settlement against unconfirmed or unlocked agreements.
 * `test_level3_settlement_invariant_and_rounding_dust` — Validates stroop remainder dust allocation to Index 0 with zero rounding leak.
+* `test_contract_stroop_loss_invariant` — Proves zero financial precision leakage across multi-participant splits.
+* `test_track_escrow_deposit_and_settlement_from_contract_pool` — Deposits revenue into escrow pool and verifies direct atomic disbursement from contract balance.
+* `test_track_escrow_deposit_and_artist_withdraw` — Verifies authenticated artist withdrawal of accumulated track escrow balances.
+* `test_artist_treasury_withdraw` — Tests platform fee treasury withdrawals with authorization.
+* `test_platform_fee_configuration_and_caps` — Enforces platform fee maximum ceiling (10.00%).
+* `test_signature_replay_defense` — Verifies rejection of replayed transactions.
+* `test_sac_token_transfer_cross_contract` — Tests Stellar Asset Contract (SAC) cross-contract transfers.
+* `test_fuzz_purchase_pass_boundaries` — Boundary condition stress testing under simulated randomized loads.
 
 ---
 
