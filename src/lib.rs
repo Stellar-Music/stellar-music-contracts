@@ -481,6 +481,11 @@ impl StellarMusicContract {
             .persistent()
             .get(&track_key)
             .ok_or(Error::TrackNotFound)?;
+        env.storage().persistent().extend_ttl(
+            &track_key,
+            STORAGE_TTL_THRESHOLD,
+            STORAGE_TTL_EXTEND,
+        );
 
         if !track.is_active {
             return Err(Error::TrackInactive);
@@ -505,6 +510,9 @@ impl StellarMusicContract {
         };
 
         env.storage().persistent().set(&pass_key, &pass_info);
+        env.storage()
+            .persistent()
+            .extend_ttl(&pass_key, STORAGE_TTL_THRESHOLD, STORAGE_TTL_EXTEND);
 
         let mut total_passes: u64 = env
             .storage()
@@ -526,6 +534,11 @@ impl StellarMusicContract {
         env.storage()
             .persistent()
             .set(&listener_count_key, &(l_count + 1));
+        env.storage().persistent().extend_ttl(
+            &listener_count_key,
+            STORAGE_TTL_THRESHOLD,
+            STORAGE_TTL_EXTEND,
+        );
 
         env.events().publish(
             (symbol_short!("pass"), symbol_short!("bought")),
@@ -625,9 +638,53 @@ impl StellarMusicContract {
         let current_balance: i128 = env.storage().persistent().get(&pool_key).unwrap_or(0);
         let new_balance = current_balance + amount;
         env.storage().persistent().set(&pool_key, &new_balance);
+        env.storage()
+            .persistent()
+            .extend_ttl(&pool_key, STORAGE_TTL_THRESHOLD, STORAGE_TTL_EXTEND);
         env.events().publish(
             (symbol_short!("pool"), symbol_short!("deposit")),
             (track_id, caller, amount),
+        );
+        Ok(new_balance)
+    }
+
+    /// Withdraw accumulated revenue from track escrow pool (track artist only)
+    pub fn withdraw_track_revenue(
+        env: Env,
+        artist: Address,
+        track_id: u64,
+        amount: i128,
+        token: Address,
+    ) -> Result<i128, Error> {
+        artist.require_auth();
+        if amount <= 0 {
+            return Err(Error::ZeroDeposit);
+        }
+        let track: TrackInfo = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Track(track_id))
+            .ok_or(Error::TrackNotFound)?;
+        if track.artist != artist {
+            return Err(Error::NotAuthorized);
+        }
+        let pool_key = DataKey::TrackPoolBalance(track_id);
+        let current_balance: i128 = env.storage().persistent().get(&pool_key).unwrap_or(0);
+        if current_balance < amount {
+            return Err(Error::InvalidSettlementAmount);
+        }
+        let new_balance = current_balance - amount;
+        env.storage().persistent().set(&pool_key, &new_balance);
+        env.storage()
+            .persistent()
+            .extend_ttl(&pool_key, STORAGE_TTL_THRESHOLD, STORAGE_TTL_EXTEND);
+
+        let client = token::Client::new(&env, &token);
+        client.transfer(&env.current_contract_address(), &artist, &amount);
+
+        env.events().publish(
+            (symbol_short!("pool"), symbol_short!("wthdrw")),
+            (track_id, artist, amount),
         );
         Ok(new_balance)
     }
@@ -936,16 +993,45 @@ impl StellarMusicContract {
 
         let payouts = Self::calculate_split_allocations(env.clone(), track_id, gross_amount)?;
 
+        let pool_key = DataKey::TrackPoolBalance(track_id);
+        let pool_balance: i128 = env.storage().persistent().get(&pool_key).unwrap_or(0);
+        let settle_from_pool = pool_balance >= gross_amount;
+
         // Execute token transfers if token address is supplied
         if let Some(token_address) = token {
             let client = token::Client::new(&env, &token_address);
-            for payout in payouts.iter() {
-                if payout.amount > 0 {
-                    client.transfer(&caller, &payout.recipient, &payout.amount);
-                    env.events().publish(
-                        (symbol_short!("settle"), symbol_short!("paid")),
-                        (track_id, payout.recipient, payout.amount),
-                    );
+            if settle_from_pool {
+                // Deduct from contract-held track pool escrow and transfer from contract
+                env.storage()
+                    .persistent()
+                    .set(&pool_key, &(pool_balance - gross_amount));
+                env.storage().persistent().extend_ttl(
+                    &pool_key,
+                    STORAGE_TTL_THRESHOLD,
+                    STORAGE_TTL_EXTEND,
+                );
+                for payout in payouts.iter() {
+                    if payout.amount > 0 {
+                        client.transfer(
+                            &env.current_contract_address(),
+                            &payout.recipient,
+                            &payout.amount,
+                        );
+                        env.events().publish(
+                            (symbol_short!("settle"), symbol_short!("paid")),
+                            (track_id, payout.recipient, payout.amount),
+                        );
+                    }
+                }
+            } else {
+                for payout in payouts.iter() {
+                    if payout.amount > 0 {
+                        client.transfer(&caller, &payout.recipient, &payout.amount);
+                        env.events().publish(
+                            (symbol_short!("settle"), symbol_short!("paid")),
+                            (track_id, payout.recipient, payout.amount),
+                        );
+                    }
                 }
             }
         }

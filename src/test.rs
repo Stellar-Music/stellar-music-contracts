@@ -1380,6 +1380,118 @@ fn test_emergency_pause_settlement_blocking() {
 }
 
 #[test]
+fn test_track_escrow_deposit_and_settlement_from_contract_pool() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let producer = Address::generate(&env);
+    let fan = Address::generate(&env);
+
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_client = TokenClient::new(&env, &token_id.address());
+    let token_admin_client = StellarAssetClient::new(&env, &token_id.address());
+
+    // Mint 50 XLM to fan
+    token_admin_client.mint(&fan, &50_000_0000);
+
+    let track_id = client.register_track(
+        &artist,
+        &5_000_0000,
+        &String::from_str(&env, "ipfs://track-escrow"),
+    );
+
+    // Setup 60/40 locked split agreement
+    let recipients = soroban_sdk::vec![
+        &env,
+        SplitRecipient {
+            recipient: artist.clone(),
+            role: symbol_short!("artist"),
+            share_basis_points: 6000,
+        },
+        SplitRecipient {
+            recipient: producer.clone(),
+            role: symbol_short!("producer"),
+            share_basis_points: 4000,
+        },
+    ];
+    let hash = BytesN::from_array(&env, &[99u8; 32]);
+    let v = client.create_split_agreement(&artist, &track_id, &hash, &recipients);
+    client.approve_split_agreement(&producer, &track_id, &v, &hash);
+
+    // Deposit 50 XLM into track pool escrow
+    let pool_bal =
+        client.deposit_track_revenue(&fan, &track_id, &50_000_0000, &Some(token_id.address()));
+    assert_eq!(pool_bal, 50_000_0000);
+    assert_eq!(token_client.balance(&contract_id), 50_000_0000);
+    assert_eq!(token_client.balance(&fan), 0);
+
+    // Execute settlement of 50 XLM from pool!
+    let receipt = client.execute_split_settlement(
+        &artist,
+        &track_id,
+        &50_000_0000,
+        &Some(token_id.address()),
+    );
+    assert_eq!(receipt.gross_amount, 50_000_0000);
+
+    // Pool balance must be 0 after settlement
+    assert_eq!(client.get_track_pool_balance(&track_id), 0);
+    assert_eq!(token_client.balance(&contract_id), 0);
+
+    // Recipients receive their shares (60% = 30 XLM, 40% = 20 XLM)
+    assert_eq!(token_client.balance(&artist), 30_000_0000);
+    assert_eq!(token_client.balance(&producer), 20_000_0000);
+}
+
+#[test]
+fn test_track_escrow_deposit_and_artist_withdraw() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(StellarMusicContract, ());
+    let client = StellarMusicContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let artist = Address::generate(&env);
+    let patron = Address::generate(&env);
+
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_client = TokenClient::new(&env, &token_id.address());
+    let token_admin_client = StellarAssetClient::new(&env, &token_id.address());
+
+    token_admin_client.mint(&patron, &25_000_0000);
+
+    let track_id = client.register_track(
+        &artist,
+        &2_000_0000,
+        &String::from_str(&env, "ipfs://patron-track"),
+    );
+
+    client.deposit_track_revenue(&patron, &track_id, &25_000_0000, &Some(token_id.address()));
+    assert_eq!(client.get_track_pool_balance(&track_id), 25_000_0000);
+    assert_eq!(token_client.balance(&contract_id), 25_000_0000);
+
+    // Artist withdraws 15 XLM from track pool
+    let remaining =
+        client.withdraw_track_revenue(&artist, &track_id, &15_000_0000, &token_id.address());
+    assert_eq!(remaining, 10_000_0000);
+    assert_eq!(client.get_track_pool_balance(&track_id), 10_000_0000);
+    assert_eq!(token_client.balance(&artist), 15_000_0000);
+    assert_eq!(token_client.balance(&contract_id), 10_000_0000);
+}
+
+#[test]
 fn test_contract_error_codes_exhaustive() {
     // Assert explicit numeric discriminator values matching ABI contract specifications
     assert_eq!(Error::AlreadyInitialized as u32, 1);

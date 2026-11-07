@@ -3,7 +3,7 @@
 [![Live Application](https://img.shields.io/badge/Live%20App-stellar--music--app.netlify.app-00f2fe?style=for-the-badge)](https://stellar-music-app.netlify.app)
 [![Stellar Testnet](https://img.shields.io/badge/Stellar_Testnet-live_contract-brightgreen?style=for-the-badge&logo=stellar)](https://stellar.expert/explorer/testnet/contract/CBUNX6PF4OOFGQ434IBVCLRBR6OBQOM5PTYUES7X6KSN2AIER6VMJK7K)
 [![Soroban SDK](https://img.shields.io/badge/Soroban%20SDK-v22.0.0-purple?style=for-the-badge)](https://stellar.org)
-[![Tests](https://img.shields.io/badge/Contract%20Tests-34%2F34%20Passing-emerald?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts)
+[![Tests](https://img.shields.io/badge/Contract%20Tests-36%2F36%20Passing-emerald?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts)
 [![Release](https://img.shields.io/badge/Release-v1.1.0-blueviolet?style=for-the-badge)](https://github.com/Stellar-Music/stellar-music-contracts/releases/tag/v1.1.0-wave)
 [![CI Status](https://img.shields.io/badge/CI%20Build-Passing-brightgreen?style=for-the-badge&logo=githubactions)](https://github.com/Stellar-Music/stellar-music-contracts/actions)
 
@@ -17,11 +17,11 @@ Stellar Music is engineered as a three-tier decentralized streaming application:
 
 | Repository | Responsibility | Tech Stack | Status | Tests |
 | :--- | :--- | :--- | :---: | :---: |
-| **[`stellar-music-contracts`](https://github.com/Stellar-Music/stellar-music-contracts)** | Non-custodial splits, passes, 0-stroop invariant engine | Soroban / Rust SDK v22 | **Deployed** | **34 / 34** |
+| **[`stellar-music-contracts`](https://github.com/Stellar-Music/stellar-music-contracts)** | Non-custodial splits, passes, 0-stroop invariant engine | Soroban / Rust SDK v22 | **Deployed** | **36 / 36** |
 | **[`stellar-music-backend`](https://github.com/Stellar-Music/stellar-music-backend)** | Audio streaming, SSE settlements, Horizon failover pool | Node.js / TypeScript / SQLite / Express | **Active** | **89 / 89** |
 | **[`stellar-music-frontend`](https://github.com/Stellar-Music/stellar-music-frontend)** | Reactive Web3 player, PWA, Freighter wallet connector | React 18 / TypeScript / Vite / Tailwind | **Live** | **130 / 130** |
 
-* **Total Protocol Automated Tests**: **253 / 253 passing** across contracts, backend, and frontend.
+* **Total Protocol Automated Tests**: **255 / 255 passing** across contracts, backend, and frontend.
 * **Live Production dApp**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
 
 ---
