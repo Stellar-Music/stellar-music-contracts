@@ -47,4 +47,3 @@ This milestone represents **250 high-impact fixes, features, architectural upgra
 - **Testnet Contract ID**: `CBUNX6PF4OOFGQ434IBVCLRBR6OBQOM5PTYUES7X6KSN2AIER6VMJK7K`
 - **WASM Hash**: `ee0cda1ecc85f3233df94fecbbdd2bbd56305a894e51f3432082dfa0770b9895`
 - **Production dApp**: [https://stellar-music-app.netlify.app](https://stellar-music-app.netlify.app)
-- **Drips Wave Appeal**: [`docs/DRIPS_WAVE_APPEAL.md`](docs/DRIPS_WAVE_APPEAL.md)

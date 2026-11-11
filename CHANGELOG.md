@@ -52,5 +52,4 @@ This release marks the completion of **250 high-impact improvements** engineered
 - **C4 Architecture & Specifications**: Comprehensive C4 container models (`docs/ARCHITECTURE.md`) and sequence diagrams (`docs/SEQUENCE_DIAGRAMS.md`).
 - **Formal Threat Specs**: Threat modeling specification covering reentrancy, replay attacks, front-running, and storage exploits (`docs/SECURITY_SPEC.md`).
 - **Governance & Multisig**: Protocol governance framework with 3-of-5 native multisig threshold requirements (`GOVERNANCE.md`, `docs/MULTISIG_SPEC.md`).
-- **Ecosystem Appeal**: Formal Stellar Drips Wave appeal dossier (`docs/DRIPS_WAVE_APPEAL.md`) and field-by-field submission checklist (`docs/APPEAL_CHECKLIST.md`).
 - **Community & Creator Enablement**: Creator audio mastering guide (`docs/CREATOR_ONBOARDING.md`), listener patronage manual (`docs/LISTENER_GUIDE.md`), bug bounty rewards policy (`docs/BUG_BOUNTY.md`), and developer FAQ (`docs/FAQ.md`).
