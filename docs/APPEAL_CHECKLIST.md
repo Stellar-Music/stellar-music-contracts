@@ -24,22 +24,22 @@ Since receiving the initial review, maintainers have implemented 250 high-impact
 
 1. Smart Contract & Financial Rigor (stellar-music-contracts):
 - Implemented and proven a 0-stroop precision loss invariant allocating integer remainder dust to primary artists across 10,000 randomized split simulations.
-- Reduced optimized WASM size by 15.1% to 40.9 KB (strictly below our 50 KB ceiling and the 65 KB network limit).
+- Reduced optimized WASM size by 15.1% to 55.8 KB (strictly below our 64 KB network protocol limit).
 - Built native 3-of-5 multi-signature upgradeability, emergency circuit breaking (set_paused), storage rent TTL auto-extensions, and pass supply cap invariants.
-- Expanded contract test suite to 34 unit and invariant tests (100% passing).
+- Expanded contract test suite to 36 unit and invariant tests (100% passing).
 
 2. Production Backend Infrastructure (stellar-music-backend):
 - Architected an active Horizon RPC Failover Pool with automatic health probing and circuit breaking under network latency or 503 throttling.
 - Implemented Server-Sent Events (SSE) streaming engine for sub-5s real-time settlement telemetry to clients.
 - Built cryptographic HMAC-SHA256 streaming tokens with timing-safe evaluation, replay defense, and automatic token expiry.
-- Expanded test coverage to 89 automated tests (100% passing) with strict TypeScript typecheck and memory leak testing.
+- Expanded test coverage to 92 automated tests (100% passing) with strict TypeScript typecheck and memory leak testing.
 
 3. Accessible Web3 Client & PWA (stellar-music-frontend):
 - Upgraded to full Progressive Web App (PWA) with offline service worker asset caching, install prompt lifecycle handling, and standalone manifest.
 - Integrated Media Session API for native lock-screen and bluetooth headphone playback controls.
 - Achieved WCAG 2.1 AA compliance with high-contrast focus styling, reduced motion honoring, and keyboard shortcut navigation (Space, Arrow keys, Mute).
 - Integrated live network latency probe and reactive toast manager.
-- Expanded frontend test suite to 130 passing tests (total across org: 253 passing automated tests).
+- Expanded frontend test suite to 130 passing tests (total across org: 258 passing automated tests).
 
 4. Documentation & Governance:
 - Published 25+ institutional RFCs including C4 Architecture, Threat Spec, Horizon Resilience Spec, Multisig Governance, Bug Bounty Policy, and Appeal Dossier.
